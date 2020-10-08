@@ -169,6 +169,7 @@ obj_function(params)
 # create objective object for pyPESTO
 objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
 ##
+# define lower and upper bound for parameters optimization
 dim_full = 2
 lb = 1 * np.ones((dim_full, 1))
 ub = 5 * np.ones((dim_full, 1))
