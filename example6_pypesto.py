@@ -32,9 +32,10 @@ from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 import pypesto
 import pypesto.visualize as visualize
 import numpy as np
-import scipy as sp
+# import scipy as sp
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
+import pypesto.optimize as optimize
 
 
 # define example objective function.
@@ -107,23 +108,29 @@ measured = (concentrations["Biomass"] + noise).tolist()
 parameters = {"D": 0.044, "Vgmax": 8.5} # -> write in numpy array
 
 ##
-for i in range(1,5):
-    D_param = 0.04 + i*0.002
-    parameters["D"] = D_param
-    for j in range(1,5):
-        Vgmax_param = 8 + j*0.25
-        parameters["Vgmax"] = Vgmax_param
-        obj_val = objective_function(dfba_model,measured,parameters)
-        print("Objective val with D = " + str(D_param) + ", Vgmax = " + str(Vgmax_param) + " is " + str(obj_val))
+# for i in range(1,5):
+#     D_param = 0.04 + i*0.002
+#     parameters["D"] = D_param
+#     for j in range(1,5):
+#         Vgmax_param = 8 + j*0.25
+#         parameters["Vgmax"] = Vgmax_param
+#         obj_val = objective_function(dfba_model,measured,parameters)
+#         print("Objective val with D = " + str(D_param) + ", Vgmax = " + str(Vgmax_param) + " is " + str(obj_val))
 
 
 ##
-# obj function ggf. als klasse mit __init__(model, observables) und __call__(parameters)
-class test():
 
-    def __init__(self, model, measured_observables):
+# define objective function as class: initialization with: model,
+# measured_observables, parameter_names,
+# call the class with the parameters (np.array)
+# return cost of the objective function
+
+class Obj_function:
+
+    def __init__(self, model, measured_observables, par_names):
         self.model = model
         self.measured_observables = measured_observables
+        self.par_names = par_names
 
     def __call__(self,parameters):
         self.parameters = parameters
@@ -131,7 +138,8 @@ class test():
         # numpy to dict
         print(self.parameters[0])
         print(self.parameters[1])
-        par_dict = {"D": self.parameters[0], "Vgmax": self.parameters[1]}
+        par_dict = {self.par_names[0]: self.parameters[0],
+                    self.par_names[1]: self.parameters[1]}
 
         self.model.update_parameters(par_dict)
         concentrations, trajectories = self.model.simulate(0.0, 16.0, 1.0)
@@ -148,33 +156,35 @@ class test():
 
 
 ##
+# initialize class
+par_names = ['D','Vgmax']
+obj_function = Obj_function(dfba_model, measured, par_names)
 
-
-o2 = test(dfba_model,measured)  #initialize class
-
-
+# call class
 params = np.array([0.044,8.5])
-# o2.objective_function(params)
-o2(params)
+obj_function(params)
 
 
 ##
-# transfor parameters-dict into numpy-array
-# for key, value in zip(ordered_parameter_keys, parameter_array):
-#     parameter[key] = value
-
-# objective2 = pypesto.Objective(fun=o2.objective_function, grad=False, hess=False)
-
-objective2 = pypesto.Objective(fun=o2, grad=False, hess=False)
+# create objective object for pyPESTO
+objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
 ##
 dim_full = 2
 lb = 1 * np.ones((dim_full, 1))
 ub = 5 * np.ones((dim_full, 1))
+
+problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub, copy_objective=False)
 ##
-problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub)
+
+result = optimize.minimize(problem1, n_starts=10)
 ##
-# import pypesto.optimize as optimize
-# result = optimize.minimize(problem1, n_starts=10)
+# plt.figure()
+# ax = visualize.waterfall(result, size=(15,6))
+
+# plt.show()
+
+##
+
 # ##
 # import pypesto.sample as sample
 # sampler = sample.AdaptiveParallelTemperingSampler(
