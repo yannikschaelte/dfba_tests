@@ -42,6 +42,7 @@ import pypesto.optimize as optimize
 import pandas as pd
 import pickle
 import pypesto.sample as sample
+from pypesto.store import (save_to_hdf5, read_from_hdf5)
 
 # DfbaModel instance initialized with cobra model
 # fba_model = read_sbml_model(
@@ -50,14 +51,22 @@ import pypesto.sample as sample
 # define fixed parameters and instances of Parameters (to be used for estimation)
 # the latter are added to model below
 K_g = Parameter("K_g",0.0027)
-v_gmax = Parameter("v_gmax",10.5)
 K_z = Parameter("K_z",0.0165)
+v_gmax = Parameter("v_gmax",10.5)
 v_zmax = Parameter("v_zmax",6.0)
-init_biomass = Parameter("init_biomass",0.1)
-init_glucose = Parameter("init_glucose",16)
-init_xylose = Parameter("init_xylose",8.0)
-init_oxygen = Parameter("init_oxygen",0.0)
-init_ethanol = Parameter("init_ethanol",0.0)
+# v_gmax = 10.5
+# v_zmax =6.0
+
+# K_g = Parameter("K_g",0.005)
+# v_gmax = Parameter("v_gmax",9.5)
+# K_z = Parameter("K_z",0.001)
+# v_zmax = Parameter("v_zmax",7.0)
+
+# init_biomass = Parameter("init_biomass",0.1)
+# init_glucose = Parameter("init_glucose",16)
+# init_xylose = Parameter("init_xylose",8.0)
+# init_oxygen = Parameter("init_oxygen",0.0)
+# init_ethanol = Parameter("init_ethanol",0.0)
 # "Biomass": 0.1,
 # "Glucose": 16,
 # "Xylose": 8.0,
@@ -95,7 +104,8 @@ v_E = ExchangeFlux("EX_etoh(e)")
 dfba_model.add_exchange_fluxes([mu, v_G, v_Z, v_O, v_E])
 
 # Here add parameters to dfba_model
-dfba_model.add_parameters([K_g,v_gmax,K_z,v_zmax])#,init_biomass,init_glucose,
+dfba_model.add_parameters([K_g,v_gmax,K_z,v_zmax])
+# dfba_model.add_parameters([K_g,K_z])#,init_biomass,init_glucose,
                           # init_xylose,init_oxygen,init_ethanol])
 
 
@@ -159,9 +169,58 @@ dfba_model.add_initial_conditions(
 # dfba_model.solver_data.set_display("none")
 t_out = 0.1
 t_end = 25
+dfba_model.solver_data.set_display("none")
 concentrations, trajectories = dfba_model.simulate(
     0.0, t_end, t_out, ["EX_glc(e)", "EX_xyl_D(e)", "EX_etoh(e)"]
 )
+##
+# simulate on a grid
+# K_g = Parameter("K_g",0.0027)
+# v_gmax = Parameter("v_gmax",10.5)
+# K_z = Parameter("K_z",0.0165)
+# v_zmax = Parameter("v_zmax",6.0)
+# range_v_gmax = range(0,20)
+# range_v_zmax = range(0,20)
+# range_Kg = np.arange(1,10,1)
+# range_Kz = np.arange(1,10,1)
+# pd_v_var = pd.DataFrame(np.zeros([len(range_Kg),len(range_Kz)]),
+#                         columns=range_Kg,index=range_Kz)
+#
+#
+# for ikg,kg in enumerate(range_Kg):
+#     for ikz,kz in enumerate(range_Kz):
+#
+#         par_dict = {"K_g": float(kg),
+#                     "v_gmax": 10.5,
+#                     "K_z": float(kz),
+#                     "v_zmax": 6.0}
+#         dfba_model.update_parameters(par_dict)
+#         concentrations, trajectories = dfba_model.simulate(
+#             0.0, t_end, t_out, ["EX_glc(e)", "EX_xyl_D(e)", "EX_etoh(e)"]
+#         )
+#         print(max(concentrations['time']))
+#         print(kg)
+#         print(kz)
+#         pd_v_var.iloc[int(ikg),int(ikz)] = max(concentrations['time'])
+#         print(pd_v_var)
+#
+# pd_v_var.to_csv("/home/erika/Documents/Projects/DFBA/results_example1/grid_kg_rows_kz_cols_1_10"
+#                 ".csv")
+#
+# ##
+# vg = 3
+# vz = 1
+# par_dict = {"K_g":0.0027,
+#             "v_gmax":vg,
+#             "K_z":0.0165,
+#             "v_zmax":vz}
+# print('vg ' +str(vg))
+# print('vz: '+str(vz))
+# dfba_model.update_parameters(par_dict)
+# concentrations, trajectories = dfba_model.simulate(
+#     0.0, t_end, t_out, ["EX_glc(e)", "EX_xyl_D(e)", "EX_etoh(e)"])
+# print(max(concentrations['time']))
+
 ##
 # generate plots of results (in this case using plotlly)
 from dfba.plot.plotly import *
@@ -179,27 +238,32 @@ fig.show()
 #concentrations.to_csv("concentrations.csv")
 #trajectories.to_csv("trajectories.csv")
 ##
-
+# DATA
 # load measurement data (from Eiteman et al., (2008), Fig 2a)
 # path_data = '/home/erika/Documents/Projects/DFBA/data_Fig2a_extracted_apprtime.csv'
 # data = pd.read_csv(path_data)
 # data: first column has to be time!
 
 # simulate data
-mu, sigma = 0, 0.01
+mu, sigma = 0, 0.02
 n_obs = 3
-noise = np.zeros((n_obs,int(t_end)))
-
-for i in range(n_obs):
-    noise[i,:] = np.random.normal(mu, sigma, [int(t_end)])
-##
-# measured = (concentrations["Biomass"] + noise).tolist()
-data_biomass = (concentrations["Biomass"] + noise[0,:])
-data_xylose = (concentrations["Xylose"] + noise[1,:])
-data_glucose = (concentrations["Glucose"] + noise[2,:])
 # create dataframe with first column 'time' and subsequent columns observable
-data = pd.DataFrame(np.arange(0,t_end),columns=['time'])
-data['Biomass'] = measured
+index = [0,10,30,50,80,150,200]
+noise = np.zeros((n_obs,len(index)))
+for i in range(n_obs):
+    noise[i,:] = np.random.normal(mu, sigma, len(index))
+
+data_time = concentrations["time"].iloc[index] 
+data_biomass = concentrations["Biomass"].iloc[index] + noise[0,:]
+data_xylose =  concentrations["Xylose"].iloc[index] + noise[1,:]
+data_glucose =  concentrations["Glucose"].iloc[index] + noise[2,:]
+
+data = pd.concat([data_time,data_biomass,data_xylose,data_glucose],axis = 1)
+
+data.to_csv("/home/erika/Documents/Projects/DFBA/results_example1/"
+            "simulated_data_sigma_0_01.csv")
+
+
 
 
 
@@ -220,22 +284,21 @@ data['Biomass'] = measured
 def get_t_simu(data):
     measured_time = data.iloc[:,0]
     t_start = measured_time.iloc[0]
-    t_end = measured_time.iloc[-1]
+    t_end = np.round(measured_time.iloc[-1],decimals=5)
     # minimal time steps
     t_steps = np.zeros(len(measured_time)-1)
     for i_st in range(len(measured_time)-1):
         t_steps[i_st] = measured_time.iloc[i_st+1]-measured_time.iloc[i_st]
-    t_out = min(t_steps)
+    t_out = np.round(min(t_steps),decimals=5)
 
     return t_start, t_end, t_out
 
-# define objective function as class: initialization with: model,
-# measured_observables, parameter_names,
-# call the class with the parameters (np.array)
-# return cost of the objective function
-
 
 class ObjFunction:
+    # define objective function as class: initialization with: model,
+    # measured_observables, parameter_names,
+    # call the class with the parameters (np.array)
+    # return cost of the objective function
 
     def __init__(self, model, data, par_names, param_scale):
         self.model = model
@@ -260,9 +323,23 @@ class ObjFunction:
         t_start, t_end, t_out = get_t_simu(self.data)
 
         self.model.update_parameters(par_dict)
-        concentrations, trajectories = self.model.simulate(t_start, t_end, t_out)
+        concentrations, trajectories = self.model.simulate(t_start, t_end,
+                                                           t_out)
 
-        conc_subset = concentrations[concentrations['time'].isin(self.data['time'])]
+        # get subset of times, that are present in measurement times.
+        indx = []
+        for i in range(len(self.data['time'])):
+            for j in range(len(concentrations['time'])):
+                if np.isclose(concentrations['time'][j],
+                              self.data['time'].values[i]):
+                    indx.append(j)
+        # check if length of found matched indices equals length of measurement
+        # time
+        if len(indx) != len(self.data['time']):
+            ValueError('Some time points are lost. Please check if inferred '
+                       't_out is correct, or why the found time subset does '
+                       'not match all measurement times.')
+        conc_subset = concentrations.iloc[indx]
 
         obs_names = self.data.columns[1:]  # first column needs to be 'Time'!! obs_names = ['Biomass','Xylose','Glucose']
         # to check!
@@ -274,7 +351,8 @@ class ObjFunction:
                 row_next = conc_subset[-1:].copy()
                 row_next['time'] = conc_subset['time'][-1:] + 1
                 conc_subset = conc_subset.append(row_next,ignore_index=True)
-            # TODO: add nan
+
+            # TODO: add nan?
 
 
 
@@ -284,6 +362,7 @@ class ObjFunction:
             difference = np.asarray(self.data[obs_names[i_obs]]) - np.asarray(
                 conc_subset[obs_names[i_obs]])
             cost = cost + np.sum(np.power(difference, 2))
+           # print(cost)
 
 
         # negloglikelihood
@@ -298,6 +377,7 @@ param_scale = 'log10'
 do_optimize = True
 
 par_names = ["K_g","v_gmax","K_z","v_zmax"]
+# par_names = ["K_g","K_z"]
 obj_function = ObjFunction(dfba_model, data, par_names, param_scale)
 
 
@@ -306,8 +386,7 @@ objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
 
 ##
 
-##
-
+where_to_save = "/home/erika/Documents/Projects/DFBA/results_example1/"
 
 # OPTIMIZATION
 # define lower and upper bound for parameters optimization
@@ -328,16 +407,20 @@ if param_scale == 'lin':
     x_g = np.array([[0.05, 8.5]])
 elif param_scale == 'log10':
     # lb = [np.log10(1/10*0.5),np.log10(1/10*8.5)]
-    lb = [-3,-3,-3,-3]
-    ub =[3,3,3,3]
+    # lb = [-3,-3,-3,-3]
+    # ub =[3,3,3,3]
     lb=[np.log10(par_dict_original['K_g'])-1,
         np.log10(par_dict_original['v_gmax'])-1,
         np.log10(par_dict_original['K_z'])-1,
         np.log10(par_dict_original['v_zmax'])-1]
+    # lb = [np.log10(par_dict_original['K_g']) - 1,
+    #       np.log10(par_dict_original['K_z']) - 1]
     ub = [np.log10(par_dict_original['K_g'])+1,
           np.log10(par_dict_original['v_gmax'])+1,
           np.log10(par_dict_original['K_z'])+1,
           np.log10(par_dict_original['v_zmax'])+1]
+    # ub = [np.log10(par_dict_original['K_g']) + 1,
+    #       np.log10(par_dict_original['K_z']) + 1]
     # K_g = Parameter("K_g", 0.0027)
     # v_gmax = Parameter("v_gmax", 10.5)
     # K_z = Parameter("K_z", 0.0165)
@@ -351,21 +434,24 @@ problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
                            copy_objective=False, x_scales=x_sc)#,
                           # x_guesses=x_g)
 if do_optimize:
-    opt_method = ['TNC']#'Pyswarm']#,'TNC']#],'L-BFGS-B']
+    opt_method = ['L-BFGS-B']#'Pyswarm']#,'TNC']#],'L-BFGS-B','Fides']
     for i_o in range(len(opt_method)):
         # opt_method = 'L-BFGS-B'
-
         if opt_method[i_o]=='Pyswarm':
             my_optimizer = optimize.PyswarmOptimizer(options={'swarmsize':30, 'minstep': 1e-9,'minfunc' : 1e-9})
-            nstarts = 1
+            # nstarts = 1
+        elif opt_method[i_o]=='Fides':
+            my_optimizer = optimize.FidesOptimizer()
         else:
             my_optimizer = optimize.ScipyOptimizer(method=opt_method[i_o],
-                                                   options={'eps': 1e-09})  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
-            nstarts = 100
+                                                   options={'eps': 1e-06})  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
+
+        nstarts = 25
 
         # my_optimizer = pypesto.optimize.DlibOptimizer()
 
         print('................starting optimization...............')
+        # record the history
         history_options = pypesto.HistoryOptions(trace_record=True)
         result = optimize.minimize(problem1, optimizer=my_optimizer, n_starts=nstarts,
                                    history_options=history_options)
@@ -382,10 +468,20 @@ if do_optimize:
         # plt.savefig('/home/erika/Documents/Projects/DFBA/optimizer_history_'+opt_method+'.png')
         #
         # store result
-        with open('/home/erika/Documents/Projects/DFBA/testresults_'+opt_method[i_o]+'.pickle',
+        name_to_save = str(nstarts)+ 'starts_' + opt_method[i_o]
+        with open(where_to_save + 'results_' +name_to_save+ '.pickle',
                 'wb') as result_file:
                 pickle.dump(result.optimize_result, result_file)  # or the full result object
                 result_file.close()
+        # save optimization result as hdf5 file
+        store_filename = where_to_save + 'results_' +name_to_save+ '.hdf5'
+        pypesto_result_writer = save_to_hdf5.OptimizationResultHDF5Writer(
+            store_filename)
+        pypesto_result_writer.write(result)#, overwrite=True)
+        pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
+            store_filename)
+        pypesto_problem_writer.write(problem1)#, overwrite=True)
+
 
         # with open('/home/erika/Documents/Projects/DFBA/results_problem.pickle',
         #           'wb') as result_file:
@@ -395,11 +491,11 @@ if do_optimize:
         #
         #
         df = result.optimize_result.as_dataframe(
-            ['fval','n_fval', 'x','x0','n_grad', 'n_hess', 'n_res', 'n_sres', 'time'])
+            ['fval','fval0','n_fval', 'x','x0','n_grad', 'n_hess', 'n_res', 'n_sres', 'time'])
         df['lb'] = str(lb)
         df['ub'] = str(ub)
         #
-        df.to_csv("/home/erika/Documents/Projects/DFBA/df_results_"+opt_method[i_o]+"_"+str(nstarts) + "runs.csv")
+        df.to_csv(where_to_save + 'df_results_' + name_to_save+ ".csv")
 ##
 
 ##
@@ -410,13 +506,38 @@ elif param_scale == 'log10':
 
 ## plot waterfall
 visualize.waterfall(result, size=(15,6))
-plt.savefig('/home/erika/Documents/Projects/DFBA/waterfall_'+str(nstarts) +'runs_'+ save_add +'.png')
+plt.savefig(where_to_save + 'waterfall_'+name_to_save+'_'+ save_add +'.png')
 # plt.close()
+##
+# READ optimization results
+# result = pickle.load( open("/home/erika/Documents/Projects/DFBA/"
+#                            "results_example1/5starts_opt_Kg_Kz/"
+#                            "testresults_L-BFGS-B_5starts_opt_kg_kv.pickle", "rb" ) )
+# pickle.dump(result, open( where_to_save + 'results_' +name_to_save+ '.pickle', "wb" ) )
+##
+
+hdf5_reader = read_from_hdf5.OptimizationResultHDF5Reader(where_to_save
+                                                          + 'results_' +name_to_save+ '.hdf5')
+result = hdf5_reader.read()
+##
+load_opt_results=True
+name_to_save = str(nstarts)+ 'starts_' + opt_method[0]
+store_filename = where_to_save + 'results_' +name_to_save+ '.hdf5'
+result = pypesto.store.OptimizationResultHDF5Reader(store_filename)
+df = pd.read_csv(where_to_save + 'df_results_' + name_to_save+ ".csv", index_col=0)
 ##
 # simulate trajectories
 # x_hat = result.optimize_result.list[0].x
-result_nr = 9  # which opt. start should be simulated and plotted?
-x_hat = df['x'][result_nr]
+result_nr = 0  # which opt. start should be simulated and plotted?
+# x_hat = df['x'][result_nr]
+x_hat = result.optimize_result.list[result_nr]['x']
+# if load_opt_results:
+#     x_hat = x_hat.replace('  ', ',')
+#     x_hat = x_hat.replace(' ', ',')
+#     x_hat = x_hat.replace(',,',',')
+#     x_hat = eval(x_hat)
+##
+
 # x_hat = np.array([0.044,8.5])
 
 par_dict = {}
@@ -434,6 +555,7 @@ dfba_model.update_parameters(par_dict)
 # dfba_model.update_parameters(par_dict_original)
 
 t_start, t_end, t_out = get_t_simu(data)
+t_out = 0.1
 concentrations_best, trajectories_best = dfba_model.simulate(t_start, t_end, t_out)
 
 ##
@@ -449,20 +571,39 @@ for i_o in range(1,len(observables)):
     plt.plot(data['time'],data[observables[i_o]], 'x',color = colors[i_o], label='data' + observables[i_o])
 
 plt.legend()
-plt.savefig('/home/erika/Documents/Projects/DFBA/simu_trajectories_' +
-            str(nstarts) +'_' + save_add +'_x' + str(result_nr)+ '.png')
+plt.savefig(where_to_save + 'simu_trajectories_' +
+            name_to_save +'_' + save_add +'_x' + str(result_nr)+ '.png')
 # plt.close()
 
 ##
+# PARAMETER PLOT
 # plt.figure()
 # create a reference point from it
+
+# ref = {'x': [np.log10(par_dict_original['K_g']),
+#              np.log10(par_dict_original['v_gmax']),
+#              np.log10(par_dict_original['K_z']),
+#              np.log10(par_dict_original['v_zmax'])],
+#        'fval': df['fval'][0],
+#        'color': [
+#            0.2, 0.4, 1., 1.], 'legend': 'reference'}
+
 ref = {'x': [np.log10(par_dict_original['K_g']),np.log10(par_dict_original['v_gmax']),
              np.log10(par_dict_original['K_z']),np.log10(par_dict_original['v_zmax'])],
        'fval': result.optimize_result.as_dataframe().iloc[0,:]['fval'], 'color': [
     0.2, 0.4, 1., 1.], 'legend': 'reference'}
-visualize.parameters(result,
+
+# ref = {'x': [np.log10(par_dict_original['K_g']),
+#              np.log10(par_dict_original['K_z'])],
+#        'fval': result.optimize_result.as_dataframe().iloc[0,:]['fval'], 'color': [
+#     0.2, 0.4, 1., 1.], 'legend': 'reference'}
+ax = visualize.parameters(result,
                      balance_alpha=False, size=[10,6],
                      reference=ref)
+ax.set_yticklabels(par_names)
+##
+plt.savefig(where_to_save+ 'parameters_' +
+            name_to_save +'_' + save_add +'_x' + str(result_nr)+ '.png')
 # visualize.ReferencePoint( x=[par_dict['K_g'],par_dict['v_gmax'],
 #                              par_dict['K_z'],par_dict['v_zmax']],
 #                           fval=None, color='g', legend=None)
