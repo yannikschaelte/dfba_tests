@@ -45,22 +45,26 @@ import pypesto.sample as sample
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
 from datetime import datetime
 
-dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/test_parallel/"
+dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+         "simulated_data"
 
-dfba_model, params_dict = get_dfba_model()
+# dfba_model, params_dict = get_dfba_model()
+_, params_dict = get_dfba_model()
 
 # params_dict = {"K_g": 0.0027,
 #           "v_gmax": 10.5,
 #           "K_z": 0.0165,
 #           "v_zmax": 6.0}
-#
-# erikas_dfba_model = PicklableDFBAModel("/home/erika/Documents/Projects/DFBA/dynamic-fba/sbml-models/iJR904.xml.gz", modifun)
+# get dfba-model in PickableDFBAModel-class
+dfba_model = PicklableDFBAModel("/home/erika/Documents/Projects/DFBA/"
+                                "dynamic-fba/sbml-models/iJR904.xml.gz", modifun)
 # dfba_model = erikas_dfba_model.dfba_model
 ##
 # Simulate model
 t_out = 0.1
 t_end = 25
-dfba_model.solver_data.set_display("none")
+# erikas_dfba_model.solver_data.set_display("none")
+# dfba_model.solver_data.set_display("none")
 concentrations, trajectories = dfba_model.simulate(
     0.0, t_end, t_out, ["EX_glc(e)", "EX_xyl_D(e)", "EX_etoh(e)"]
 )
@@ -68,7 +72,7 @@ concentrations, trajectories = dfba_model.simulate(
 ##
 # generate plots of results (in this case using plotlly)
 # from dfba.plot.plotly import *
-#
+# #
 # import plotly.io as pio
 #
 # pio.renderers.default = "browser"
@@ -113,19 +117,30 @@ concentrations, trajectories = dfba_model.simulate(
 # data = pd.read_csv("/home/erika/Documents/Projects/DFBA/results_example1/"
 #                    "simulated_data/tightBounds_50starts_02_L-BFGS-B_and_sampling/"
 #                    "simulated_data_sigma_0_01_50starts_L-BFGS-B.csv", index_col=0)
+# data = pd.read_csv("/home/erika/Documents/Projects/DFBA/results_example1/"
+#                    "simulated_data/tightBounds_50starts_02_L-BFGS-B_and_sampling/"
+#                    "simulated_data_sigma_0_01_50starts_L-BFGS-B.csv", index_col=0)
 data = pd.read_csv("/home/erika/Documents/Projects/DFBA/results_example1/"
-                   "simulated_data/tightBounds_50starts_02_L-BFGS-B_and_sampling/"
-                   "simulated_data_sigma_0_01_50starts_L-BFGS-B.csv", index_col=0)
+                   "simulated_data/"
+                   "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv", index_col=0)
 
 ##
 # import matplotlib.pyplot as plt
 # # plot trajectories
-# plt.figure()
-# plt.plot(concentrations['time'],concentrations['Biomass'], label='Biomass')
-# plt.plot(concentrations['time'],concentrations['Glucose'], label='Glucose')
-# plt.plot(concentrations['time'],concentrations['Volume'], label='Volume')
+# # plt.figure()
+# # plt.plot(concentrations['time'],concentrations['Biomass'], label='Biomass')
+# # plt.plot(concentrations['time'],concentrations['Glucose'], label='Glucose')
+# # plt.plot(concentrations['time'],concentrations['Volume'], label='Volume')
 # #plt.plot(concentrations['time'],measured, 'kx', label='measured')
-# plt.legend()
+# # plt.legend()
+# colors = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f']
+# observables = data.columns
+# for i_o in range(1,len(observables)):
+#     plt.plot(concentrations['time'],concentrations[observables[i_o]],
+#              label='simulation '+ observables[i_o], color = colors[i_o])
+#     plt.plot(data['time'],data[observables[i_o]], 'x',color = colors[i_o], label='data' + observables[i_o])
+# #
+
 
 # par_dict = {'K_g': 0.1, 'v_gmax': 13.41647121146278, 'K_z': 0.0013965913120499189, 'v_zmax': 10.507141443062393}
 # # par_dict = {'K_g': 0.06490681437002449, 'v_gmax': 10.679789201848868, 'K_z': 0.011207397140323462, 'v_zmax': 2.391019700112453}
@@ -189,10 +204,17 @@ obj_function = ObjFunction(dfba_model, data, par_names, param_scale)
 # create objective object for pyPESTO
 objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
 
-
-import cloudpickle as pickle
-dump = pickle.dumps(objective2)
-pickle.loads(dump) #drauf aufrufen, mit
+##
+# test obj-function
+param_numpy = [0.0028, 10.5, 0.0165, 6.0]
+obj_function_test = ObjFunction(dfba_model, data, par_names, 'lin')
+cost = obj_function_test(param_numpy)
+print(cost)
+# Test, ob das Pickling, was pyPESTO intern verwendet,
+# um die Objective für die MultiProcessEngine zu kopieren
+# import cloudpickle as pickle
+# dump = pickle.dumps(objective2)
+# pickle.loads(dump)
 
 ##
 # OPTIMIZATION
@@ -205,7 +227,8 @@ pickle.loads(dump) #drauf aufrufen, mit
 # par_dict_original['K_z'] = 0.0165
 # par_dict_original['v_zmax'] = 6.0
 
-do_optimize = False
+do_optimize = True
+parallel = True
 
 if param_scale == 'lin':
     lb = [0,5]
@@ -215,15 +238,15 @@ if param_scale == 'lin':
 elif param_scale == 'log10':
     lb = [-4,-0.5,-4,-0.5]
     ub =[-1,2,-1,2]
-    lb=[np.log10(params_dict['K_g'])-1,
-        np.log10(params_dict['v_gmax']) - 1,
-        np.log10(params_dict['K_z']) - 1,
-        np.log10(params_dict['v_zmax'])-1]
-    #
-    ub = [np.log10(params_dict['K_g'])+1,
-          np.log10(params_dict['v_gmax']) + 1,
-          np.log10(params_dict['K_z']) + 1,
-          np.log10(params_dict['v_zmax'])+1]
+    # lb=[np.log10(params_dict['K_g'])-1,
+    #     np.log10(params_dict['v_gmax']) - 1,
+    #     np.log10(params_dict['K_z']) - 1,
+    #     np.log10(params_dict['v_zmax'])-1]
+    # #
+    # ub = [np.log10(params_dict['K_g'])+1,
+    #       np.log10(params_dict['v_gmax']) + 1,
+    #       np.log10(params_dict['K_z']) + 1,
+    #       np.log10(params_dict['v_zmax'])+1]
     # K_g = Parameter("K_g", 0.0027)
     # v_gmax = Parameter("v_gmax", 10.5)
     # K_z = Parameter("K_z", 0.0165)
@@ -237,6 +260,12 @@ elif param_scale == 'log10':
     # result_previous = hdf5_reader.read()
     #x000 = result_previous.optimize_result.list[0]['x0'] #-2.91552379,  1.19795398, -1.99072438,  0.76946407
     #x000 =   [[-2.49875968, 1.10079146 , -2.32763403 , 1.46871346]] #fval:0.232185780918403	fval0:206.458530563814	nfval:820
+
+if parallel:
+    engine = pypesto.engine.MultiThreadEngine(n_threads=8)
+else:
+    engine = pypesto.engine.SingleCoreEngine()
+
 
 problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
                            copy_objective=False, x_scales=x_sc)#,
@@ -259,7 +288,7 @@ if do_optimize:
                                                    options={'eps': 1e-09,
                                                             'maxls':40})  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
 
-        nstarts = 5
+        nstarts = 8
 
         # my_optimizer = pypesto.optimize.DlibOptimizer()
 
@@ -272,8 +301,14 @@ if do_optimize:
         file1.close()
 
         history_options = pypesto.HistoryOptions(trace_record=True)
+        # for i_s in range(nstarts):
         result = optimize.minimize(problem1, optimizer=my_optimizer, n_starts=nstarts,
-                                   history_options=history_options)
+                                       history_options=history_options, engine=engine)
+        # save optimization result as hdf5 file
+        store_filename = dir_to + 'results_' + name_to_save + '_'
+        pypesto_result_writer = save_to_hdf5.OptimizationResultHDF5Writer(
+            store_filename+ '.hdf5')
+        pypesto_result_writer.write(result, overwrite=True)
 
         # store result
         now = datetime.now()
@@ -285,14 +320,10 @@ if do_optimize:
                 'wb') as result_file:
                 pickle.dump(result.optimize_result, result_file)  # or the full result object
                 result_file.close()
-        # save optimization result as hdf5 file
-        store_filename = dir_to + 'results_' +name_to_save+ '.hdf5'
-        pypesto_result_writer = save_to_hdf5.OptimizationResultHDF5Writer(
-            store_filename)
-        pypesto_result_writer.write(result, overwrite=True)
-        pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
-            store_filename)
-        pypesto_problem_writer.write(problem1, overwrite=True)
+
+        # pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
+        #     store_filename)
+        # pypesto_problem_writer.write(problem1, overwrite=True)
 
         df = result.optimize_result.as_dataframe(
             ['fval','fval0','n_fval', 'x','x0','grad','n_grad', 'n_hess', 'n_res', 'n_sres', 'time'])
@@ -303,7 +334,7 @@ if do_optimize:
 
 
 
-data.to_csv(os.path.join(dir_to, "simulated_data_sigma_0_01_" + name_to_save + ".csv"))
+    data.to_csv(os.path.join(dir_to, "simulated_data_sigma_0_01_" + name_to_save + ".csv"))
 ##
 if param_scale == 'lin':
     save_add = ''
@@ -316,11 +347,11 @@ plt.savefig(dir_to + 'waterfall_'+name_to_save+'_'+ save_add +'.png')
 # plt.close()
 ##
 # READ optimization results
-# result = pickle.load( open("/home/erika/Documents/Projects/DFBA/"
-#                            "results_example1/5starts_opt_Kg_Kz/"
-#                            "testresults_L-BFGS-B_5starts_opt_kg_kv.pickle", "rb" ) )
-# pickle.dump(result, open( dir_to + 'results_' +name_to_save+ '.pickle', "wb" ) )
-# results_TCN = result
+result = pickle.load( open("/home/erika/Documents/Projects/DFBA/"
+                           "results_example1/5starts_opt_Kg_Kz/"
+                           "testresults_L-BFGS-B_5starts_opt_kg_kv.pickle", "rb" ) )
+pickle.dump(result, open( dir_to + 'results_' +name_to_save+ '.pickle', "wb" ) )
+results_TCN = result
 name_to_save = str(nstarts)+ 'starts_' + opt_method[0]
 store_filename = dir_to + 'results_' +name_to_save+ '.hdf5'
 hdf5_reader = read_from_hdf5.OptimizationResultHDF5Reader(dir_to
@@ -350,7 +381,7 @@ else:
     for i_p in range(len(par_names)):
         par_dict[par_names[i_p]] = x_hat[i_p]
 
-simu_original = True
+simu_original = False
 if simu_original:
     dfba_model.update_parameters(params_dict)
 else:
@@ -446,13 +477,14 @@ print(cost)
 # #########################################################################
 ## SAMPLING --------------------------------------------
 
-hdf5_reader = read_from_hdf5.OptimizationResultHDF5Reader("/home/erika/Documents/"
-                                                          "Projects/DFBA/"
-                                                          "results_example1/"
-                                                          "results_50starts_L-BFGS-B.hdf5")
+hdf5_reader = read_from_hdf5.OptimizationResultHDF5Reader("/home/erika/"
+                                                          "Documents/Projects/DFBA/"
+                                                          "results_example1/simulated_data/"
+                                                          "tightBounds_25starts_L-BGFS-B/"
+                                                          "results_25starts_L-BFGS-B.hdf5")
 result = hdf5_reader.read()
 x_hat = result.optimize_result.list[0]['x']
-name_to_save = '50starts_L-BFGS-B'
+name_to_save = 'tightBounds_25starts_L-BGFS-B'
 ## start 10:26-11:06 - 1000 samples
 # ---------------------------------------------------------------------------
 # sampler = sample.AdaptiveParallelTemperingSampler(
@@ -467,7 +499,7 @@ n_samples=10000
 result = sample.sample(problem1, n_samples=n_samples, sampler=sampler,
                        x0 = x_hat)
                        #x0 = np.array([np.log10(0.5),  np.log10(8.5)]))
-##
+
 with open(dir_to+ 'sampling_' + str(n_samples) + '_'+ name_to_save+ '.pickle' ,
           'wb') as result_file:
     pickle.dump(result.sample_result,
@@ -483,8 +515,9 @@ pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
 pypesto_problem_writer.write(problem1, overwrite=True)
 ##
 # plt.figure()
-visualize.sampling_parameters_trace(result, use_problem_bounds=True, size=(12,5))
-plt.savefig(dir_to + 'sampling_AM_' +str(n_samples) +'.png', bbox_inches = 'tight')
+ax = visualize.sampling_parameters_trace(result, use_problem_bounds=True, size=(12,5))
+ax.set_ylabel(list(params_dict.keys())[3])
+# plt.savefig(dir_to + 'sampling_AM_' +str(n_samples) +'.png', bbox_inches = 'tight')
 plt.show()
 # plt.close()
 ##
@@ -504,6 +537,10 @@ with open('/home/erika/Documents/Projects/DFBA/results_sampling_AM_' +str(n_samp
     result = pickle.load(result_file)  # or the full result object
     result_file.close()
 ##
-visualize.sampling_1d_marginals(result)
+ax = visualize.sampling_1d_marginals(result)
+ax[0][0].set_xlabel(list(params_dict.keys())[0])
+ax[0][1].set_xlabel(list(params_dict.keys())[1])
+ax[1][0].set_xlabel(list(params_dict.keys())[2])
+ax[1][1].set_xlabel(list(params_dict.keys())[3])
 plt.savefig(dir_to+ 'sampling_1d_marginals_AM_' +str(n_samples) +'.png', bbox_inches = 'tight')
 

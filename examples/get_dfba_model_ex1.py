@@ -1,5 +1,8 @@
 from cobra.io import read_sbml_model
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
+import multiprocessing
+from multiprocessing import Lock
+
 
 # DfbaModel instance initialized with cobra model
 # fba_model = read_sbml_model(
@@ -190,30 +193,38 @@ class PicklableDFBAModel:
     def __init__(self, file_, modifun):
         self.file_ = file_
         self.modifun = modifun
-        self.dfba_model = PicklableDFBAModel.create_dfba_model(file_, modifun)
+        with multiprocessing.Lock():
+            self.dfba_model = PicklableDFBAModel.create_dfba_model(file_, modifun)
 
-    def update_parameters(self, *args, **kwargs):
+    def update_parameters(self, par_dict):#, *args, **kwargs):
         """Update parameters."""
-        # self.model.update_parameters(par_dict)
-        return self.dfba_model(*args, **kwargs)
+        self.dfba_model.update_parameters(par_dict)
+        # return self.dfba_model()#*args, **kwargs
 
-    def simulate(self, *args, **kwargs):
+    def simulate(self, t_start, t_end, t_out, *args, **kwargs):
         """Simulate from the model."""
-        return self.dfba_model(*args, **kwargs)
+        self.dfba_model.solver_data.set_display("none")
+        concentrations, trajectories = self.dfba_model.simulate(t_start,
+                                                                t_end, t_out)
+        # return self.dfba_model(*args, **kwargs)
+        return concentrations, trajectories
 
     def __getstate__(self) -> dict:
         """Get a serializable representation of the object for pickling."""
         return {
+            # print("I was actually called")
             'file_': self.file_,
-            'modifun': self.modifun,
+            'modifun': self.modifun
+            # 'lock': self.lock
         }
 
     def __setstate__(self, state: dict):
         """Create an object from pickled state."""
         self.file_ = state['file_']
         self.modifun = state['modifun']
-        self.dfba_model = PicklableDFBAModel.create_dfba_model(
-            self.file_, self.modifun)
+        with multiprocessing.Lock():
+            self.dfba_model = PicklableDFBAModel.create_dfba_model(
+                self.file_, self.modifun)
 
     @staticmethod
     def create_dfba_model(file_, modifun):
@@ -225,7 +236,7 @@ class PicklableDFBAModel:
 
 
 
-erikas_dfba_model = PicklableDFBAModel("/home/erika/Documents/Projects/DFBA/dynamic-fba/sbml-models/iJR904.xml.gz", modifun)
+#erikas_dfba_model = PicklableDFBAModel("/home/erika/Documents/Projects/DFBA/dynamic-fba/sbml-models/iJR904.xml.gz", modifun)
 
 # import cloudpickle as pickle
 # dump = pickle.dumps(obj);
