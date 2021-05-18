@@ -179,11 +179,11 @@ class PicklableDFBAModel:
     expected to be called on the dfba model afterwards.
     """
 
-    def __init__(self, file_, modifun):
+    def __init__(self, file_, modifunc):
         self.file_ = file_
-        self.modifun = modifun
+        self.modifunc = modifunc
         with multiprocessing.Lock():
-            self.dfba_model = PicklableDFBAModel.create_dfba_model(file_, modifun)
+            self.dfba_model = PicklableDFBAModel.create_dfba_model(file_, modifunc)
 
     def update_parameters(self, par_dict):#, *args, **kwargs):
         """Update parameters."""
@@ -201,25 +201,25 @@ class PicklableDFBAModel:
         """Get a serializable representation of the object for pickling."""
         return {
             'file_': self.file_,
-            'modifun': self.modifun
+            'modifunc': self.modifunc
             # 'lock': self.lock
         }
 
     def __setstate__(self, state: dict):
         """Create an object from pickled state."""
         self.file_ = state['file_']
-        self.modifun = state['modifun']
+        self.modifunc = state['modifunc']
         with multiprocessing.Lock():
             self.dfba_model = PicklableDFBAModel.create_dfba_model(
-                self.file_, self.modifun)
+                self.file_, self.modifunc)
             # self.dfba_model.solver_data.set_display("none")
 
     @staticmethod
-    def create_dfba_model(file_, modifun):
+    def create_dfba_model(file_, modifunc):
         fba_model = read_sbml_model(file_)
         fba_model.solver = "glpk"
         dfba_model = DfbaModel(fba_model)
-        modifun(dfba_model)
+        modifunc(dfba_model)
         return dfba_model
 
 
