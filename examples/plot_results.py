@@ -161,8 +161,6 @@ dir_result_object = dir_to +"results_after_sampling_" + str(n_samples) + \
                      "_" + sam_method + "_1ch_results_" + n_multistart + \
                      "starts_" + opt_method + "_.hdf5"
 
-# dir_sampling = "/home/erika/Documents/Projects/DFBA/results_example1/tests/" \
-#                "sampling_5_results_2starts_SLSQP_.pickle"
 dir_sampling = dir_to + "sampling_" + str(n_samples) + "_" + sam_method + \
                "_1ch_results_" + n_multistart + "starts_" + opt_method + \
                "_.pickle"
@@ -174,12 +172,10 @@ result_sampling = pickle.load(open(dir_sampling, "rb"))
 
 result1.sample_result = result_sampling
 ##
-
 params_dict = {"K_g": 0.0027,
-          "v_gmax": 10.5,
-          "K_z": 0.0165,
-          "v_zmax": 6.0}
-
+               "v_gmax": 10.5,
+               "K_z": 0.0165,
+               "v_zmax": 6.0}
 
 ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
                                          size=(12,5))
