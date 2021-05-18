@@ -132,10 +132,9 @@ ref = {'x': x_hat,
        'color': [0.2, 0.4, 1., 1.], 'legend': 'optimum'}
 visualize.optimizer_history(result,
                             reference=ref)
-#
+
 plt.savefig(dir_to + 'optimizer_history_' +
             name_to_save + '_' + '_x' + str(result_nr) + '.png')
-
 
 param_numpy = np.array(list(par_dict.values()))
 param_numpy = result.optimize_result.list[0]['x']
@@ -144,7 +143,6 @@ obj_function_test = ObjFunction(dfba_model, data, par_names, 'log10')
 cost = obj_function_test(param_numpy)
 print(cost)
 
-# par_dict
 ##
 # -------------------------------------------------------------------------
 # ----------------SAMPLING ------------------------------------------------
