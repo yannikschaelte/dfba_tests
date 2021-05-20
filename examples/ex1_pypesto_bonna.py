@@ -31,7 +31,8 @@ from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction, get_t_simu)
-from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, modifun
+from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, \
+    modifun
 
 import matplotlib
 if not grid:
@@ -48,6 +49,7 @@ import pypesto.sample as sample
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
 from datetime import datetime
 import tempfile
+import fides
 
 # activate debugging
 # import logging
@@ -101,7 +103,7 @@ def run_optimization(model_dir,
     param_scale = 'log10'
     par_names = list(params_dict.keys()) # ["K_g","v_gmax","K_z","v_zmax"]
 
-    obj_function = ObjFunction(dfba_model, data, par_names, param_scale,'LS')
+    obj_function = ObjFunction(dfba_model, data, par_names, param_scale, 'LS')
 
     # create objective object for pyPESTO
     objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
