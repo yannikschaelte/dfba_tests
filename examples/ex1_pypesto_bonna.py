@@ -247,7 +247,7 @@ def run_optimization(model_dir,
 
 
 if not grid:
-    # Example 1:
+    # Example 1 - Synthetic Data:
     # name_ex = "example1"
     # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
     #             "sbml-models/iJR904.xml.gz"
@@ -256,23 +256,30 @@ if not grid:
     # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
     #              "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
-    # data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #            "real_data/data_Fig1.csv"
-    # dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #          "real_data/"
+
+    # Example 1 - Real data:
+    name_ex = "example1_aerobic"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                  "sbml-models/iJR904.xml.gz"
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+                 "real_data/data_Fig1.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+             "real_data/"
+    lo_b = [-4, -1, -4, -1]
+    up_b = [-0.5, 2, -0.5, 2]
 
     # Example 6:
-    name_ex = "example6"
-    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                  "sbml-models/iND750.xml.gz"
-    lo_b = [-4, -1]
-    up_b = [-0.5, 2]
-    data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
-                 "simulated_data/simulated_data_sigma_0.01.csv"
-    direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/"
+    # name_ex = "example6"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #               "sbml-models/iND750.xml.gz"
+    # lo_b = [-4, -1]
+    # up_b = [-0.5, 2]
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+    #              "simulated_data/simulated_data_sigma_0.01.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/"
 
 
-    n_starts = 2
+    n_starts = 8
     optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
     optimization_method = 'SLSQP'
     # optimization_method = 'Fides'

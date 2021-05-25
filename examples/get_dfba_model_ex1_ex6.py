@@ -94,6 +94,82 @@ def setup_dfba_model_ex1(dfba_model):
     return dfba_model, params
 
 
+def setup_dfba_model_ex1_aerobic(dfba_model):
+    """
+    Set up the DFBA model with defining rhs, exchange fluxes, parameters,
+    initial conditions.
+    Example 1 - Real Data, Eitemann et al 2008.
+    Aerobic growth of *E. coli* on glucose and xylose.
+
+    Organism -> _Escherichia coli str. K-12 substr. MG1655_
+    Model in http://bigg.ucsd.edu/models/iJR904
+    """
+    print("Example 1. Real Data. Aerobic Growth.")
+    # instances of KineticVariable (default initial conditions are 0.0, but
+    # can be set here if wanted e.g. Oxygen)
+    X = KineticVariable("Biomass")
+    Gluc = KineticVariable("Glucose")
+    Xyl = KineticVariable("Xylose")
+    Eth = KineticVariable("Ethanol")
+
+    # add kinetic variables to dfba_model
+    dfba_model.add_kinetic_variables([X, Gluc, Xyl, Eth])
+
+    # instances of ExchangeFlux
+    mu = ExchangeFlux("BiomassEcoli")
+    v_G = ExchangeFlux("EX_glc(e)")
+    v_Z = ExchangeFlux("EX_xyl_D(e)")
+    v_E = ExchangeFlux("EX_etoh(e)")
+
+    # add exchange fluxes to dfba_model
+    dfba_model.add_exchange_fluxes([mu, v_G, v_Z, v_E])
+
+    # Here add parameters to dfba_model
+    params = {"K_g": 0.0027,
+              "v_gmax": 10.5,
+              "K_z": 0.0165,
+              "v_zmax": 6.0}
+    K_g = Parameter(list(params.keys())[0], list(params.values())[0])
+    v_gmax = Parameter(list(params.keys())[1], list(params.values())[1])
+    K_z = Parameter(list(params.keys())[2], list(params.values())[2])
+    v_zmax = Parameter(list(params.keys())[3], list(params.values())[3])
+
+    dfba_model.add_parameters([K_g, v_gmax, K_z, v_zmax])
+
+    # add rhs expressions for kinetic variables in dfba_model
+    dfba_model.add_rhs_expression("Biomass", mu * X)
+    dfba_model.add_rhs_expression("Glucose", v_G * 180.1559 * X / 1000.0)
+    dfba_model.add_rhs_expression("Xylose", v_Z * 150.13 * X / 1000.0)
+    dfba_model.add_rhs_expression("Ethanol", v_E * 46.06844 * X / 1000.0)
+
+    # add lower/upper bound expressions for exchange fluxes in dfba_model
+    # together with expression that must be non-negative for correct evaluation
+    # of bounds
+    # v_gmax = 10.5
+    # K_g = 0.0027
+    dfba_model.add_exchange_flux_lb(
+        "EX_glc(e)", v_gmax * (Gluc / (K_g + Gluc)) * (1 / (1 + Eth / 20.0)),
+        Gluc)  # v_g glucose
+    # v_zmax = 6.0
+    # K_z = 0.0165
+    dfba_model.add_exchange_flux_lb(
+        "EX_xyl_D(e)",
+        v_zmax * (Xyl / (K_z + Xyl)) * (1 / (1 + Eth / 20.0)) *
+        (1 / (1 + Gluc / 0.005)), Xyl)  # v_z, xylose
+
+    # add initial conditions for kinetic variables in dfba_model biomass
+    # (gDW/L), metabolites (g/L)
+    dfba_model.add_initial_conditions(
+        {
+            "Biomass": 0.03,
+            "Glucose": 15.5,
+            "Xylose": 8.0,
+            "Ethanol": 0.0,
+        }
+    )
+    return dfba_model, params
+
+
 def setup_dfba_model_ex6(dfba_model):
     """
     Set up the DFBA model with defining rhs, exchange fluxes, parameters,
@@ -181,6 +257,9 @@ def get_dfba_model(model_dir, example_name):
     # TODO: this function can be optimized/should be rewritten, if its only
     #  used for getting param_dict, then the model does not need to be loaded.
     fba_model = read_sbml_model(model_dir)
+    if example_name=="example1_aerobic":
+        fba_model.reactions.get_by_id("EX_o2(e)").lower_bound = - 15.0 * (
+                    0.24 / (0.024 + 0.24))
 
     fba_model.solver = "glpk"
     dfba_model = DfbaModel(fba_model)
@@ -189,9 +268,11 @@ def get_dfba_model(model_dir, example_name):
         dfba_model, params = setup_dfba_model_ex1(dfba_model)
     elif example_name=="example6":
         dfba_model, params = setup_dfba_model_ex6(dfba_model)
+    elif example_name=="example1_aerobic":
+        dfba_model, params = setup_dfba_model_ex1_aerobic(dfba_model)
     else:
-        raise ValueError("Choose either 'example1' or 'example6' as "
-                         "argument for examplename.")
+        raise ValueError("Choose either 'example1' or 'example1_aerobic' "
+                         "or 'example6' as argument for examplename.")
 
     return dfba_model, params
 
@@ -205,6 +286,11 @@ def modifun(dfba_model, example_name):
         setup_dfba_model_ex1(dfba_model)
     elif example_name == "example6":
         setup_dfba_model_ex6(dfba_model)
+    elif example_name == "example1_aerobic":
+        dfba_model, params = setup_dfba_model_ex1_aerobic(dfba_model)
+    else:
+        raise ValueError("Choose either 'example1' or 'example1_aerobic' "
+                         "or 'example6' as argument for examplename.")
 
     dfba_model.solver_data.set_display("none")
 
@@ -258,6 +344,9 @@ class PicklableDFBAModel:
     @staticmethod
     def create_dfba_model(file_, modifunc, example_name):
         fba_model = read_sbml_model(file_)
+        if example_name == "example1_aerobic":
+            fba_model.reactions.get_by_id("EX_o2(e)").lower_bound = - 15.0 * (
+                    0.24 / (0.024 + 0.24))
         fba_model.solver = "glpk"
         dfba_model = DfbaModel(fba_model)
         modifunc(dfba_model, example_name)
