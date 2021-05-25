@@ -31,8 +31,8 @@ from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction, get_t_simu)
-from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, \
-    modifun
+from examples.get_dfba_model_ex1_ex6 import get_dfba_model, \
+    PicklableDFBAModel, modifun
 
 import matplotlib
 if not grid:
@@ -47,6 +47,7 @@ import pandas as pd
 import pickle
 import pypesto.sample as sample
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
+#from pypesto import Objective, FD
 from datetime import datetime
 import tempfile
 import fides
@@ -65,6 +66,7 @@ import fides
 
 
 def run_optimization(model_dir,
+                     examplename,
                      data_dir,
                      dir_to,
                      lb, ub,
@@ -76,14 +78,14 @@ def run_optimization(model_dir,
     print("Parallel: " + str(parallel))
 
     # dfba_model, params_dict = get_dfba_model(model_dir)
-    _, params_dict = get_dfba_model(model_dir)
+    _, params_dict = get_dfba_model(model_dir, examplename)
 
     # params_dict = {"K_g": 0.0027,
     #           "v_gmax": 10.5,
     #           "K_z": 0.0165,
     #           "v_zmax": 6.0}
     # get dfba-model in PickableDFBAModel-class
-    dfba_model = PicklableDFBAModel(model_dir, modifun)
+    dfba_model = PicklableDFBAModel(model_dir, modifun, examplename)
 
     ##
     # Simulate model
@@ -134,14 +136,9 @@ def run_optimization(model_dir,
     do_optimize = True
 
     if param_scale == 'lin':
-        lb = [0, 5]
-        ub = [1, 13]
-        x_sc = ['lin', 'lin']
-        x_g = np.array([[0.05, 8.5]])
+        x_sc = ['lin']*len(params_dict)
     elif param_scale == 'log10':
-        # lb = [-4, -2, -4, -2]
-        # ub = [0, 2, 0, 2]
-        x_sc = ['log10', 'log10', 'log10', 'log10']
+        x_sc = ['log10']*len(params_dict)
 
     if parallel:
         # engine = pypesto.engine.MultiThreadEngine(n_threads=2)
@@ -250,22 +247,37 @@ def run_optimization(model_dir,
 
 
 if not grid:
-    model_dir = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                "sbml-models/iJR904.xml.gz"
-    data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-               "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
-    dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"
+    # Example 1:
+    # name_ex = "example1"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #             "sbml-models/iJR904.xml.gz"
+    # lo_b = [-4, -1, -4, -1]
+    # up_b = [-0.5, 2, -0.5, 2]
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #              "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
     # data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
     #            "real_data/data_Fig1.csv"
     # dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
     #          "real_data/"
-    lb = [-4, -1, -4, -1]
-    ub = [-0.5, 2, -0.5, 2]
-    nstarts = 1
-    opt_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
-    opt_method = 'SLSQP'
-    # opt_method = 'Fides'
-    parallel = False
 
-    run_optimization(model_dir, data_dir, dir_to, lb, ub, nstarts, opt_method,
-                     parallel)
+    # Example 6:
+    name_ex = "example6"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                  "sbml-models/iND750.xml.gz"
+    lo_b = [-4, -1]
+    up_b = [-0.5, 2]
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+                 "simulated_data/simulated_data_sigma_0.01.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/"
+
+
+    n_starts = 2
+    optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
+    optimization_method = 'SLSQP'
+    # optimization_method = 'Fides'
+    run_parallel = True
+
+    run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
+                     n_starts,
+                     optimization_method, run_parallel)
