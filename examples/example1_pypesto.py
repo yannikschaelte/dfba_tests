@@ -29,7 +29,7 @@ from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,get_t_simu)
-from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, modifun
+from examples.get_dfba_model_ex1_ex6 import get_dfba_model, PicklableDFBAModel, modifun
 
 import matplotlib
 matplotlib.use('TkAgg')

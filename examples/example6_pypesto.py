@@ -81,6 +81,7 @@ v_G = ExchangeFlux("EX_glc__D_e")
 v_E = ExchangeFlux("EX_etoh_e")
 v_H = ExchangeFlux("EX_glyc_e")
 dfba_model.add_exchange_fluxes([mu, v_G, v_E, v_H])
+
 dfba_model.add_parameters([Kg,Vgmax]) # Here add parameters to dfba_model
 dfba_model.add_rhs_expression("Volume", D)
 dfba_model.add_rhs_expression("Biomass", mu * X - D * X / V)
