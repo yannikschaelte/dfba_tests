@@ -11,10 +11,10 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
 import pypesto.visualize as visualize
-from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, modifun
+from examples.get_dfba_model_ex1_ex6 import get_dfba_model, PicklableDFBAModel, modifun
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,get_t_simu)
 import pickle
-#
+##
 folder = "SLSQP"
 dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/real_data/" \
          + folder + "_200/"
@@ -148,7 +148,7 @@ print(cost)
 # ----------------SAMPLING ------------------------------------------------
 
 sam_method = "AM"
-n_samples = 1000
+n_samples = 10000
 opt_method = "SLSQP"
 n_multistart = "200"
 
