@@ -30,7 +30,9 @@ from os.path import dirname, join, pardir
 from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
-from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction, get_t_simu)
+from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,
+                                                       get_t_simu,
+                                                       get_obs_names)
 from examples.get_dfba_model_ex1_ex6 import get_dfba_model, \
     PicklableDFBAModel, modifun
 
@@ -50,7 +52,7 @@ from pypesto.store import (save_to_hdf5, read_from_hdf5)
 #from pypesto import Objective, FD
 from datetime import datetime
 import tempfile
-import fides
+#import fides
 
 # activate debugging
 # import logging
@@ -103,9 +105,21 @@ def run_optimization(model_dir,
     ##
     # initialize Objective Function Class
     param_scale = 'log10'
-    par_names = list(params_dict.keys()) # ["K_g","v_gmax","K_z","v_zmax"]
+    cost_funct = "LS"
+    cost_funct = "NLLH"
 
-    obj_function = ObjFunction(dfba_model, data, par_names, param_scale, 'LS')
+    # observable names
+    obs_names = get_obs_names(data)
+    if cost_funct == "NLLH":
+        # define new sigma parameters for each observable
+        for i_o in range(len(obs_names)):
+            params_dict["sigma_" + obs_names[i_o]] = 1
+
+    # parameter names
+    par_names = list(params_dict.keys())  # ["K_g","v_gmax","K_z","v_zmax"]
+
+    obj_function = ObjFunction(dfba_model, data, par_names, param_scale,
+                               cost_funct)
 
     # create objective object for pyPESTO
     objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
@@ -142,7 +156,7 @@ def run_optimization(model_dir,
 
     if parallel:
         # engine = pypesto.engine.MultiThreadEngine(n_threads=2)
-        engine = pypesto.engine.MultiProcessEngine()#n_procs=2
+        engine = pypesto.engine.MultiProcessEngine() #n_procs=2
     else:
         engine = pypesto.engine.SingleCoreEngine()
     print(engine)
@@ -158,10 +172,13 @@ def run_optimization(model_dir,
     #         [-2.4933603   ,1.19034203 ,-3.56790169 , 1.95862843],
     #         [-3.98467895  ,1.45992462 ,-1.2082032  , 1.5633985 ],
     #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
+    x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
+             -2,-2,-2]]#good one, with sigma = 0.01
+]
 
     problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
-                               copy_objective=False, x_scales=x_sc)#,
-                               #x_guesses=x000)
+                               copy_objective=False, x_scales=x_sc,
+                               x_guesses=x000)
 
     # opt_method = ['TNC'] # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','Fides']
     # nstarts = 2
@@ -248,25 +265,25 @@ def run_optimization(model_dir,
 
 if not grid:
     # Example 1 - Synthetic Data:
-    # name_ex = "example1"
-    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-    #             "sbml-models/iJR904.xml.gz"
-    # lo_b = [-4, -1, -4, -1]
-    # up_b = [-0.5, 2, -0.5, 2]
-    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #              "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
+    name_ex = "example1"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                "sbml-models/iJR904.xml.gz"
+    lo_b = [-4, -1, -4, -1, -2,-2,-2]
+    up_b = [-0.5, 2, -0.5, 2,1,1,1]
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+                 "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
 
     # Example 1 - Real data:
-    name_ex = "example1_aerobic"
-    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                  "sbml-models/iJR904.xml.gz"
-    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-                 "real_data/data_Fig1.csv"
-    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-             "real_data/"
-    lo_b = [-4, -1, -4, -1]
-    up_b = [-0.5, 2, -0.5, 2]
+    # name_ex = "example1_aerobic"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #               "sbml-models/iJR904.xml.gz"
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #              "real_data/data_Fig1.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #          "real_data/"
+    # lo_b = [-4, -1, -4, -1]
+    # up_b = [-0.5, 2, -0.5, 1]
 
     # Example 6:
     # name_ex = "example6"
@@ -278,12 +295,11 @@ if not grid:
     #              "simulated_data/simulated_data_sigma_0.01.csv"
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/"
 
-
-    n_starts = 8
+    n_starts = 1
     optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
     optimization_method = 'SLSQP'
     # optimization_method = 'Fides'
-    run_parallel = True
+    run_parallel = False
 
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
