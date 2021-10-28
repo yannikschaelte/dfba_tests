@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-grid = True
+grid = False
 
 from os.path import dirname, join, pardir
 
@@ -192,23 +192,6 @@ def run_optimization(model_dir,
         engine = pypesto.engine.SingleCoreEngine()
     print(engine)
 
-    # x000 = [[-1.95850078, -0.42881366, -1.72887303, -0.58208385],
-    #         [-1.95850078, -0.42881366, -1.72887303, -0.58208385]] # ends fast
-    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271]] # good one
-    # x000 = [[-2.78442879 , 1.12691846, -3.20043592,  0.87725271],
-    #         [-2.89694802  ,0.56741186 ,-2.13841139 , 1.06010259],
-    #         [-3.58966931  ,0.72260446 ,-2.59264231 , 0.96568738],
-    #         [-3.9995114 ,1.67331706 ,-3.87885693 , 1.29158789],
-    #         [-2.535844    ,1.14214638 ,-2.86931482 , 0.72088211],
-    #         [-2.4933603   ,1.19034203 ,-3.56790169 , 1.95862843],
-    #         [-3.98467895  ,1.45992462 ,-1.2082032  , 1.5633985 ],
-    #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
-    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
-    #          -2,-2,-2]]#good one, with sigma = 0.01
-    # example 6:
-    # TODO: x000 as input of optimization function
-    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]]
-
     if len(par_names) != len(lb):
         raise ValueError("Defined lower/upper bound array does not coincide "
                          "with number of parameters! \n Parameters: (" +
@@ -323,6 +306,21 @@ if not grid:
              "real_data_laplace_noise/"
     lo_b = [-3, -1, -4, -1, -3, -3, -3]
     up_b = [1, 2, 0, 2, 1, 1, 1]
+    x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,-2,-2,-2]]
+    # x000 = [[-1.95850078, -0.42881366, -1.72887303, -0.58208385],
+    #         [-1.95850078, -0.42881366, -1.72887303, -0.58208385]] # ends fast
+    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271]] # good one
+    # x000 = [[-2.78442879 , 1.12691846, -3.20043592,  0.87725271],
+    #         [-2.89694802  ,0.56741186 ,-2.13841139 , 1.06010259],
+    #         [-3.58966931  ,0.72260446 ,-2.59264231 , 0.96568738],
+    #         [-3.9995114 ,1.67331706 ,-3.87885693 , 1.29158789],
+    #         [-2.535844    ,1.14214638 ,-2.86931482 , 0.72088211],
+    #         [-2.4933603   ,1.19034203 ,-3.56790169 , 1.95862843],
+    #         [-3.98467895  ,1.45992462 ,-1.2082032  , 1.5633985 ],
+    #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
+    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
+    #          -2,-2,-2]]#good one, with sigma = 0.01
+
 
     # Example 6:
     # name_ex = "example6"
@@ -334,14 +332,15 @@ if not grid:
     #              "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
     #
-    n_starts = 10
+    n_starts = 1
     optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
     optimization_method = 'SLSQP'
     # optimization_method = 'Fides'
     run_parallel = True
     cost_funct='NLLH_laplace'
+    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] example 6:
 
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
                      optimization_method, run_parallel,
-                     cost_funct)
+                     cost_funct, x000=x000)
