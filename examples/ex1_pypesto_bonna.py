@@ -23,7 +23,7 @@ Organism -> _Escherichia coli str. K-12 substr. MG1655_
 Model in http://bigg.ucsd.edu/models/iJR904
 """
 
-grid = False
+grid = True
 
 from os.path import dirname, join, pardir
 
@@ -31,7 +31,6 @@ from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,
-                                                       get_t_simu,
                                                        get_obs_names)
 from examples.get_dfba_model_ex1_ex6 import get_dfba_model, \
     PicklableDFBAModel, modifun
@@ -74,7 +73,8 @@ def run_optimization(model_dir,
                      lb, ub,
                      nstarts,
                      opt_method,
-                     parallel):
+                     parallel,
+                     cost_funct):
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
     print("Parallel: " + str(parallel))
@@ -105,12 +105,13 @@ def run_optimization(model_dir,
     ##
     # initialize Objective Function Class
     param_scale = 'log10'
-    cost_funct = "LS"
-    cost_funct = "NLLH"
+    # cost_funct = "LS"
+    # cost_funct = "NLLH_normal"
+    #cost_funct = "NLLH_laplace"
 
     # observable names
     obs_names = get_obs_names(data)
-    if cost_funct == "NLLH":
+    if "NLLH" in cost_funct:
         # define new sigma parameters for each observable
         for i_o in range(len(obs_names)):
             params_dict["sigma_" + obs_names[i_o]] = 1
@@ -172,13 +173,20 @@ def run_optimization(model_dir,
     #         [-2.4933603   ,1.19034203 ,-3.56790169 , 1.95862843],
     #         [-3.98467895  ,1.45992462 ,-1.2082032  , 1.5633985 ],
     #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
-    x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
-             -2,-2,-2]]#good one, with sigma = 0.01
-]
+    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
+    #          -2,-2,-2]]#good one, with sigma = 0.01
+    # example 6:
+    # TODO: x000 as input of optimization function
+    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]]
+
+    if len(par_names) != len(lb):
+        raise ValueError("Defined lower/upper bound array does not coincide "
+                         "with number of parameters! \n Parameters: (" +
+                         str(len(par_names)) + ") " + str(par_names)
+                         + "\n dimension(lb) = " + str(len(ub)))
 
     problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
-                               copy_objective=False, x_scales=x_sc,
-                               x_guesses=x000)
+                               copy_objective=False, x_scales=x_sc)
 
     # opt_method = ['TNC'] # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','Fides']
     # nstarts = 2
@@ -210,7 +218,7 @@ def run_optimization(model_dir,
 
         print('----- starting optimization...............')
         # record the history
-        name_to_save = str(nstarts) + 'starts_' + opt_method
+        name_to_save = str(nstarts) + 'starts_' + opt_method + '_' + cost_funct
         now = datetime.now()
         str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
         file1 = open(os.path.join(dir_to, 'OptStart_' + str_now + '_' +
@@ -265,42 +273,44 @@ def run_optimization(model_dir,
 
 if not grid:
     # Example 1 - Synthetic Data:
-    name_ex = "example1"
-    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                "sbml-models/iJR904.xml.gz"
-    lo_b = [-4, -1, -4, -1, -2,-2,-2]
-    up_b = [-0.5, 2, -0.5, 2,1,1,1]
-    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-                 "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
-    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
+    # name_ex = "example1"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #             "sbml-models/iJR904.xml.gz"
+    # lo_b = [-4, -1, -4, -1, -2,-2,-2]
+    # up_b = [-0.5, 2, -0.5, 2,1,1,1]
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #              "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
 
     # Example 1 - Real data:
-    # name_ex = "example1_aerobic"
-    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-    #               "sbml-models/iJR904.xml.gz"
-    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #              "real_data/data_Fig1.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #          "real_data/"
-    # lo_b = [-4, -1, -4, -1]
-    # up_b = [-0.5, 2, -0.5, 1]
+    name_ex = "example1_aerobic"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                  "sbml-models/iJR904.xml.gz"
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+                 "real_data/data_Fig1.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+             "real_data_laplace_noise/"
+    lo_b = [-3, -1, -4, -1, -3, -3, -3]
+    up_b = [1, 2, 0, 2, 1, 1, 1]
 
     # Example 6:
     # name_ex = "example6"
     # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
     #               "sbml-models/iND750.xml.gz"
-    # lo_b = [-4, -1]
-    # up_b = [-0.5, 2]
+    # lo_b = [-3, -1, -3]
+    # up_b = [0, 3, 1]
     # data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
-    #              "simulated_data/simulated_data_sigma_0.01.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/"
-
-    n_starts = 1
+    #              "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
+    #
+    n_starts = 10
     optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
     optimization_method = 'SLSQP'
     # optimization_method = 'Fides'
-    run_parallel = False
+    run_parallel = True
+    cost_funct='NLLH_laplace'
 
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
-                     optimization_method, run_parallel)
+                     optimization_method, run_parallel,
+                     cost_funct)
