@@ -14,32 +14,63 @@ import pypesto.visualize as visualize
 from examples.get_dfba_model_ex1_ex6 import get_dfba_model, PicklableDFBAModel, modifun
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,get_t_simu)
 import pickle
-##
+from dfba.plot.matplotlib import *
+import matplotlib.pyplot as plt
+#
 folder = "SLSQP"
-dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/real_data/" \
-         + folder + "_200/"
-res_path = "results_200starts_" + folder + "_.hdf5"
-model_dir = "/home/erika/Documents/Projects/DFBA/"\
-            "dynamic-fba/sbml-models/iJR904.xml.gz"
+starts = "1"
+nllh = True
+
+# Example 1
+# dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/real_data/" \
+#          + folder + "_" + starts + "/"
+# example_name = "example1_aerobic" # example1, example6
+# model_dir = "/home/erika/Documents/Projects/DFBA/"\
+#             "dynamic-fba/sbml-models/iJR904.xml.gz"     # example1
 # data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
 #                "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
 # data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
 #            "simulated_data/simulated_data_sigma_0.25.csv"
-data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/real_data/" \
-           "data_Fig1.csv"
+# data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+#               "real_data/data_Fig1.csv"
+
+# Example 6
+# dir_to = "/home/erika/Documents/Projects/DFBA/results_example6/ex6_synthetic/" + \
+#          folder + "_"+starts+"/"
+dir_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
+example_name = "example6"
+model_dir = "/home/erika/Documents/Projects/DFBA/"\
+            "dynamic-fba/sbml-models/iND750.xml.gz"   # example6
+data_dir = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+           "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
+# data_dir = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+#             "simulated_data/simulated_data_sigma_0.01_each_minute_ex6.csv"
+
+
+res_path = "results_" + starts + "starts_" + folder + "_.hdf5"
+res_path = "results_1starts_SLSQP_NLLH_laplace_.hdf5"
+
+data = pd.read_csv(data_dir, index_col=0)
+if example_name == "example6":
+    plot_extra = ["Glucose", "Volume"]  # ex 6
+elif example_name == "example1_aerobic":
+    plot_extra = []  # "Ethanol", "Oxygen"]
+    # data['error_Biomass'] = 0.014
+else:
+    plot_extra = ["Ethanol", "Oxygen"]
+
 
 param_scale = 'log10'
 
 name_to_save = res_path[:-5]
-_, params_dict = get_dfba_model(model_dir)
+dfba_model, params_dict = get_dfba_model(model_dir, example_name)
 par_names = list(params_dict.keys())
-dfba_model = PicklableDFBAModel(model_dir, modifun)
-data = pd.read_csv(data_dir, index_col=0)
+# dfba_model = PicklableDFBAModel(model_dir, modifun, example_name)
 
 hdf5_reader = \
     read_from_hdf5.OptimizationResultHDF5Reader(dir_to + res_path)
 result = hdf5_reader.read()
-
+##
 # plot waterfall
 visualize.waterfall(result, size=(15, 6))
 plt.savefig(dir_to + 'waterfall_' + name_to_save + '.png')
@@ -74,47 +105,95 @@ else:
 
 t_start, t_end, t_out = get_t_simu(data)
 t_out = 0.1
-concentrations_best, trajectories_best = dfba_model.simulate(t_start, t_end,
-                                                             t_out)
 
+concentrations_best, trajectories_best = dfba_model.simulate(t_start, t_end,
+                                                             t_out,
+                                                           ["EX_glc__D_e",
+                                                            "EX_etoh_e",
+                                                            "EX_glyc_e"])
+##
+i_t = 32
+delta_Gluc = trajectories_best.iloc[i_t, 1] * concentrations_best.iloc[i_t,1] + \
+    par_dict['D'] * (100- concentrations_best.iloc[i_t,3]) / \
+             concentrations_best.iloc[i_t,5]
+print(delta_Gluc)
+# EX_glc__D_e * Biomass + d *(100-Glucose)/Volume
+##
+plt.rcParams["figure.figsize"] = 9, 5
+plot_trajectories(trajectories_best)
+# plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+plt.show()
+plt.savefig(dir_to + 'exchangeRates_' +
+            name_to_save + '_' + '_x' + str(result_nr) + '.png', bbox_inches='tight')
+##
+fs=12
 # TRAJECTORIES PLOT
 observables = data.columns
 colors = ['#fff7fb', '#ece2f0', '#d0d1e6', '#a6bddb', '#67a9cf', '#3690c0',
           '#02818a', '#016c59', '#014636']
 colors = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f']
 
-plt.figure()
+plt.figure(figsize=[7,5])
 for i_o in range(1, len(observables)):
     plt.plot(concentrations_best['time'], concentrations_best[observables[i_o]],
              label='simulation ' + observables[i_o], color=colors[i_o])
+    # if example_name == "example1_aerobic":
+    #     plt.errorbar(data['time'], data[observables[i_o]],
+    #                  yerr=data['error_Biomass'], fmt='x', color=colors[i_o],
+    #                  label='data ' + observables[i_o])
+    # else:
     plt.plot(data['time'], data[observables[i_o]], 'x', color=colors[i_o],
-             label='data' + observables[i_o])
+             label='data ' + observables[i_o])
+if plot_extra:
+    for i_e in range(len(plot_extra)):
+        plt.plot(concentrations_best['time'],
+                 concentrations_best[plot_extra[i_e]],
+                 label='simulation ' + plot_extra[i_e], color=colors[i_o+1+i_e])
 plt.title(str(x_hat))
-plt.xlabel('Time [h]')
-plt.ylabel('Concentration [g/L]')
+plt.xlabel('Time [h]', fontsize=fs)
+plt.ylabel('Concentration [g/L]', fontsize=fs)
 if simu_original:
     plt.title('original parameters \n' + str(params_dict))
 
-plt.legend()
+plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
 
 if simu_original:
     save_add = 'original'
 
 plt.savefig(dir_to + 'simu_trajectories_' +
-            name_to_save + '_' + '_x' + str(result_nr) + '.png')
+            name_to_save + '_' + '_x' + str(result_nr) + '.png',
+            bbox_inches='tight')
 # plt.close()
 
 
 # PARAMETER PLOT
 # create a reference point from it
-ref = {'x': [np.log10(params_dict['K_g']), np.log10(params_dict['v_gmax']),
-             np.log10(params_dict['K_z']), np.log10(params_dict['v_zmax'])],
-       'fval': result.optimize_result.as_dataframe().iloc[0, :]['fval'],
-       'color': [0.2, 0.4, 1., 1.], 'legend': 'reference'}
+if not nllh and not example_name=="example1_aerobic":
+    if example_name == "example1":
+        ref = {'x': [np.log10(params_dict['K_g']), np.log10(params_dict['v_gmax']),
+                     np.log10(params_dict['K_z']), np.log10(params_dict['v_zmax'])],
+               'fval': result.optimize_result.as_dataframe().iloc[0, :]['fval'],
+               'color': [0.2, 0.4, 1., 1.], 'legend': 'reference'}
+    elif example_name == "example6":
+        ref = {'x': [np.log10(params_dict['D']), np.log10(params_dict['Vgmax'])],
+               'fval': result.optimize_result.as_dataframe().iloc[0, :]['fval'],
+               'color': [0.2, 0.4, 1., 1.], 'legend': 'reference'}
+    else:
+        raise ValueError("Reference is not implemented yet for other then ex1 or "
+                         "ex1_aerobic or ex6.")
+    ax = visualize.parameters(result,
+                              balance_alpha=False, size=[10, 6],
+                              reference=ref)
+elif example_name == "example1_aerobic":
+    ax = visualize.parameters(result,
+                              balance_alpha=False, size=[10, 6])
+else:
+    for i_o in range(1, len(observables)):
+        par_names.append("sigma_" + observables[i_o])
+    ax = visualize.parameters(result,
+                              balance_alpha=False, size=[10, 6])
 
-ax = visualize.parameters(result,
-                          balance_alpha=False, size=[10, 6],
-                          reference=ref)
+
 ax.set_yticklabels(par_names)
 
 plt.savefig(dir_to + 'parameters_' +
@@ -152,8 +231,9 @@ n_samples = 10000
 opt_method = "SLSQP"
 n_multistart = "200"
 
-dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-                    "bonna/SLSQP_200/"
+example_name = "example1"
+
+dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/bonna/SLSQP_200/"
 
 dir_result_object = dir_to +"results_after_sampling_" + str(n_samples) + \
                      "_" + sam_method + "_1ch_results_" + n_multistart + \
@@ -170,14 +250,30 @@ result_sampling = pickle.load(open(dir_sampling, "rb"))
 
 result1.sample_result = result_sampling
 ##
-params_dict = {"K_g": 0.0027,
+if example_name == "example1":
+    params_dict = {"K_g": 0.0027,
                "v_gmax": 10.5,
                "K_z": 0.0165,
                "v_zmax": 6.0}
+elif example_name == "example6":
+    params_dict = {"D": 0.044,
+               "Vgmax": 8.5}
+
+import pypesto.sample as sample
+sample.geweke_test(result=result1)
+
+
+# ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
+#                                          size=(12, 5))
+# for i in range(len(params_dict)):
+    # ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
 
 ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
-                                         size=(12,5))
-ax.set_ylabel(list(params_dict.keys())[3])
+                                         full_trace=True, size=(12,5))
+for i in range(len(params_dict)):
+    ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
+
+# ax.set_ylabel(list(params_dict.keys())[3])
 plt.savefig(dir_to + 'sampling_'+sam_method+'_' + str(n_samples) + '.png',
             bbox_inches='tight')
 plt.show()
@@ -188,8 +284,41 @@ visualize.sampling_fval_trace(result1, size=(12, 5))
 plt.savefig(dir_to+'sampling_fval_' + sam_method+'_' + str(n_samples) + '.png',
             bbox_inches='tight')
 # plt.close()
+##
+ax = visualize.sampling_scatter(result1, size=[13, 6])
+# ax = visualize.sampling_parameter_traces(res, use_problem_bounds=False, size=(12,5))
+if example_name == "example6":
+    ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
+    ax.fig.axes[2].set_ylabel(list(params_dict.keys())[1])
+    ax.fig.axes[2].set_xlabel(list(params_dict.keys())[0])
+    ax.fig.axes[3].set_xlabel(list(params_dict.keys())[1])
+    ax.fig.axes[0].set_xlim(result1.problem.lb[0],result1.problem.ub[0])
+    ax.fig.axes[2].set_xlim(result1.problem.lb[0], result1.problem.ub[0])
+    ax.fig.axes[1].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
+    ax.fig.axes[3].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
+    ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+    ax.fig.axes[1].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+    ax.fig.axes[2].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+    ax.fig.axes[3].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+elif example_name == "example1":
+    ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
+    ax.fig.axes[4].set_ylabel(list(params_dict.keys())[1])
+    ax.fig.axes[8].set_ylabel(list(params_dict.keys())[2])
+    ax.fig.axes[12].set_ylabel(list(params_dict.keys())[3])
+    ax.fig.axes[12].set_xlabel(list(params_dict.keys())[0])
+    ax.fig.axes[13].set_xlabel(list(params_dict.keys())[1])
+    ax.fig.axes[14].set_xlabel(list(params_dict.keys())[2])
+    ax.fig.axes[15].set_xlabel(list(params_dict.keys())[3])
+    ax.fig.axes[12].set_xlim(result1.problem.lb[0]-0.5, result1.problem.ub[0]+0.5)
+    ax.fig.axes[13].set_xlim(result1.problem.lb[1]-0.5, result1.problem.ub[1]+0.5)
+    ax.fig.axes[14].set_xlim(result1.problem.lb[2]-0.5, result1.problem.ub[2]+0.5)
+    ax.fig.axes[15].set_xlim(result1.problem.lb[3]-0.5, result1.problem.ub[3]+0.5)
+    ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+    ax.fig.axes[4].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+    ax.fig.axes[8].set_ylim(result1.problem.lb[2], result1.problem.ub[2])
+    ax.fig.axes[12].set_ylim(result1.problem.lb[3], result1.problem.ub[3])
 
-visualize.sampling_scatter(result1, size=[13, 6])
+
 plt.savefig(dir_to + 'sampling_scatter_'+sam_method+'_' + str(n_samples) +
             '.png', bbox_inches='tight')
 # plt.close()
