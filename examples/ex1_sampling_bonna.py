@@ -31,7 +31,7 @@ from cobra.io import read_sbml_model
 
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction, get_t_simu)
-from examples.get_dfba_model_ex1 import get_dfba_model, PicklableDFBAModel, modifun
+from examples.get_dfba_model_ex1_ex6 import get_dfba_model, PicklableDFBAModel, modifun
 
 import matplotlib
 if not grid:
@@ -63,16 +63,17 @@ import tempfile
 
 
 def init_pypesto_problem(model_dir: str, data_dir: str,
-                         lb: np.array, ub: np.array, parallel: bool):
+                         lb: np.array, ub: np.array, parallel: bool,
+                         examplename):
     # dfba_model, params_dict = get_dfba_model(model_dir)
-    _, params_dict = get_dfba_model(model_dir)
+    _, params_dict = get_dfba_model(model_dir,examplename)
 
     # params_dict = {"K_g": 0.0027,
     #           "v_gmax": 10.5,
     #           "K_z": 0.0165,
     #           "v_zmax": 6.0}
     # get dfba-model in PickableDFBAModel-class
-    dfba_model = PicklableDFBAModel(model_dir, modifun)
+    dfba_model = PicklableDFBAModel(model_dir, modifun, examplename)
 
     data = pd.read_csv(data_dir, index_col=0)
 
@@ -81,7 +82,9 @@ def init_pypesto_problem(model_dir: str, data_dir: str,
     param_scale = 'log10'
     par_names = list(params_dict.keys())  # ["K_g","v_gmax","K_z","v_zmax"]
 
-    obj_function = ObjFunction(dfba_model, data, par_names, param_scale)
+    cost_funct = "LS"   # TODO: initialize funtion with cost-funct
+    obj_function = ObjFunction(dfba_model, data, par_names, param_scale,
+                               cost_funct)
 
     # create objective object for pyPESTO
     objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
@@ -89,12 +92,9 @@ def init_pypesto_problem(model_dir: str, data_dir: str,
     # pyPESTO-PROBLEM
     # define lower and upper bound for parameters optimization
     if param_scale == 'lin':
-        lb = [0, 5]
-        ub = [1, 13]
-        x_sc = ['lin', 'lin']
-        x_g = np.array([[0.05, 8.5]])
+        x_sc = ['lin']*len(params_dict)
     elif param_scale == 'log10':
-        x_sc = ['log10', 'log10', 'log10', 'log10']
+        x_sc = ['log10']*len(params_dict)
 
     if parallel:
         # engine = pypesto.engine.MultiThreadEngine(n_threads=2)
@@ -240,10 +240,12 @@ def run_sampling(dir_hdf5_file, model_dir, data_dir, dir_to, n_samples,
     result = hdf5_reader.read()
     problem_hdf5 = result.problem
 
+    examplename = "example1"    #TODO
     problem1, _, objective2 = init_pypesto_problem(model_dir, data_dir,
                                                    problem_hdf5.lb,
                                                    problem_hdf5.ub,
-                                                   parallel=False)
+                                                   parallel=False,
+                                                   examplename)
     x_hat = result.optimize_result.list[0]['x']
     name_to_save = os.path.split(dir_hdf5_file)[1][:-5]
 
