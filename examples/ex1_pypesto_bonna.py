@@ -16,13 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
-"""Anaerobic growth of *E. coli* on glucose and xylose.
-
-Organism -> _Escherichia coli str. K-12 substr. MG1655_
-Model in http://bigg.ucsd.edu/models/iJR904
-"""
-
 grid = True
 
 from os.path import dirname, join, pardir
@@ -74,7 +67,45 @@ def run_optimization(model_dir,
                      nstarts,
                      opt_method,
                      parallel,
-                     cost_funct):
+                     cost_funct,
+                     x000=None):
+    """
+    - Build DFBA model, where the FBA part is defined in SBML in the file
+      "xxx.xml.gz" (model_dir) and the dynamic part is defined in the function
+      'get_dfba_model_ex1_ex6.py'
+    - builds a pickable DFBA model (to enable parallelization with pypesto)
+    - reads data
+    - defines pypesto-objective
+    - defines pypesto-problem
+    - runs optimization (SLSQP, TNC, L-BFGS-B, Pyswarm)
+    - stores optimization results
+    Parameters:
+    -----------
+    model_dir: str
+        directory to SBML file with ending "xxx.xml.gz"
+    examplename: str
+        which dfba-model should be loaded ("example1",
+        "example1_aerobic" (model for real data),  "example6" (toy model))
+    data_dir: str
+        directory to data file, where second column needs to be "time"-column,
+        (first column can be indices or whatever)
+    dir_to: str
+        directory where results shall be saved
+    lb, ub: list
+        lower bound, upper bound for parameters
+    nstarts: int
+        number of starts
+    opt_method: str
+        optimization method ("SLSQP"|"L-BFGS-B"|"TNC"|"Pyswarm"|)
+    parallel: bool
+        should optimization be run in paralllel?
+    cost_funct: str
+        'LS' (Least Squares objective function)
+        'NLLH_normal' (negloglikelihood with normal distributed noise)
+        'NLLH_laplace' (negloglikelihood with laplace noise)
+    x000: list, optional
+        initial values for parameters optimization
+    """
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
     print("Parallel: " + str(parallel))
@@ -88,8 +119,7 @@ def run_optimization(model_dir,
     #           "v_zmax": 6.0}
     # get dfba-model in PickableDFBAModel-class
     dfba_model = PicklableDFBAModel(model_dir, modifun, examplename)
-
-    ##
+    #
     # Simulate model
     # t_out = 0.1
     # t_end = 25
@@ -102,7 +132,7 @@ def run_optimization(model_dir,
 
     data = pd.read_csv(data_dir, index_col=0)
 
-    ##
+    #
     # initialize Objective Function Class
     param_scale = 'log10'
     # cost_funct = "LS"
@@ -125,7 +155,7 @@ def run_optimization(model_dir,
     # create objective object for pyPESTO
     objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
 
-    ##
+    #
     # test obj-function
     # param_numpy = [0.0028, 10.5, 0.0165, 6.0]
     # obj_function_test = ObjFunction(dfba_model, data, par_names, 'lin')
@@ -137,7 +167,7 @@ def run_optimization(model_dir,
     # dump = pickle.dumps(objective2)
     # pickle.loads(dump)
 
-    ##
+    #
     # OPTIMIZATION
     # define lower and upper bound for parameters optimization
     # lb = 0 * np.ones((dim_full, 1)) #log
@@ -186,7 +216,8 @@ def run_optimization(model_dir,
                          + "\n dimension(lb) = " + str(len(ub)))
 
     problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
-                               copy_objective=False, x_scales=x_sc)
+                               copy_objective=False, x_scales=x_sc,
+                               x_guesses=x000)
 
     # opt_method = ['TNC'] # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','Fides']
     # nstarts = 2
