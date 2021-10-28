@@ -34,6 +34,11 @@ def get_obs_names(data):
     return data.columns[1:]
 
 
+def calculate_residuals(measurement, simulation):
+    res = np.asarray(measurement) - np.asarray(simulation)
+    return res
+
+
 class ObjFunction:
     """
     The objective function class.
@@ -80,9 +85,9 @@ class ObjFunction:
         for i_p in range(len(self.par_names)):
             par_dict[self.par_names[i_p]] = self.parameters[i_p]
 
-        # Create Sigma array # TODO
+        # Create Sigma array
         obs_names = get_obs_names(self.data)
-        if self.cost_mod == "NLLH":
+        if "NLLH" in self.cost_mod :
             nr_obs = len(obs_names)
             sigma = np.zeros(nr_obs)
             for i_e, i_p in enumerate(range(len(self.par_names)-nr_obs,
@@ -140,30 +145,42 @@ class ObjFunction:
                              'inferred t_out is correct, or why the found time'
                              ' subset does not match all measurement times.')
 
+        # short-hand
+        pi = np.pi
+
+        # calculate Likelihood or Residuals
+        cost = 0
         if self.cost_mod == "LS":
-            # Least squares
-            cost = 0
+            # calculate residuals - Least squares
             for i_obs in range(len(obs_names)):
-                res = np.asarray(self.data[obs_names[i_obs]]) - \
-                             np.asarray(conc_subset[obs_names[i_obs]])
+                res = calculate_residuals(self.data[obs_names[i_obs]],
+                                          conc_subset[obs_names[i_obs]])
                 cost = cost + np.sum(np.power(res, 2))
-                print(cost)
 
-        elif self.cost_mod == "NLLH":
-            # neg-log-likelihood TODO
-            cost = 0
+        elif self.cost_mod == "NLLH_normal":
+            # calculate neg-log-likelihood with noise distribution: NORMAL
             for i_obs in range(0, len(obs_names)):
-                # sigma = self.data[obs_names[i_obs]]  # TODO
-                res = np.asarray(self.data[obs_names[i_obs]]) - \
-                      np.asarray(conc_subset[obs_names[i_obs]])
-                nllh_obs = np.log(2*np.pi*np.power(sigma[i_obs], 2)) + \
+                res = calculate_residuals(self.data[obs_names[i_obs]],
+                                          conc_subset[obs_names[i_obs]])
+                nllh = np.log(2* pi* np.power(sigma[i_obs], 2)) + \
                     np.power((res/sigma[i_obs]), 2)
-                cost = cost + 0.5*sum(nllh_obs)
-            print(cost)
-
+                cost = cost + 0.5*sum(nllh)
+        elif self.cost_mod == "NLLH_laplace":
+            # calculate neg-log-likelihood with noise distribution: LAPLACE
+            for i_obs in range(0, len(obs_names)):
+                res = calculate_residuals(self.data[obs_names[i_obs]],
+                                          conc_subset[obs_names[i_obs]])
+                nllh = np.log(2*sigma[i_obs]) + \
+                           np.abs(res)/sigma[i_obs]
+                cost = cost + sum(nllh)
         else:
             raise ValueError("Choose which cost-function to use, either "
                              "'cost_mod='LS'' (Least-Squares) or "
-                             "'cost_mod='NLLH''(negative log likelihood).")
+                             "'cost_mod='NLLH_normal''(negative log likelihood "
+                                "with normal distributed noise) or "
+                             "'cost_mod='NLLH_laplace''(neglog-likelihood "
+                                "with Laplace distributed noise).")
+
+        print(cost)
 
         return cost
