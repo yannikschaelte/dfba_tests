@@ -41,10 +41,10 @@ import pandas as pd
 import pickle
 import pypesto.sample as sample
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
-#from pypesto import Objective, FD
+# from pypesto import Objective, FD
 from datetime import datetime
 import tempfile
-#import fides
+import fides
 
 # activate debugging
 # import logging
@@ -109,6 +109,26 @@ def run_optimization(model_dir,
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
     print("Parallel: " + str(parallel))
+    name_to_save = str(nstarts) + 'starts_' + opt_method + '_' + cost_funct
+
+    # save example settings/inputs
+    pd_info = pd.DataFrame(index= ['dir_to', 'example_name',
+                                   'model_dir', 'data_dir', 'lb',  'ub',
+                                   'nstarts', 'opt_method', 'parallel',
+                                   'cost_function', 'x000_initialGuess'],
+                           columns=['content'])
+    pd_info.loc['dir_to'] = dir_to
+    pd_info.loc['example_name'] = examplename
+    pd_info.loc['model_dir'] = model_dir
+    pd_info.loc['data_dir'] = data_dir
+    pd_info.loc['lb'] = str(lb)
+    pd_info.loc['ub'] = str(ub)
+    pd_info.loc['nstarts'] = nstarts
+    pd_info.loc['opt_method'] = opt_method
+    pd_info.loc['parallel'] = parallel
+    pd_info.loc['cost_function'] = cost_funct
+    pd_info.loc['x000_initialGuess'] = str(x000)
+    pd_info.to_csv(os.path.join(dir_to,"pd_info_" + name_to_save + ".csv"))
 
     # dfba_model, params_dict = get_dfba_model(model_dir)
     _, params_dict = get_dfba_model(model_dir, examplename)
@@ -135,9 +155,7 @@ def run_optimization(model_dir,
     #
     # initialize Objective Function Class
     param_scale = 'log10'
-    # cost_funct = "LS"
-    # cost_funct = "NLLH_normal"
-    #cost_funct = "NLLH_laplace"
+    # cost_funct = "LS" |  "NLLH_normal" | "NLLH_laplace"
 
     # observable names
     obs_names = get_obs_names(data)
@@ -154,8 +172,21 @@ def run_optimization(model_dir,
 
     # create objective object for pyPESTO
     objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
+    if opt_method == 'Fides':
+    # Fides: objective function, if no hessian_update is provided, this
+    # function must return a tuple (fval, grad), otherwise this function must
+    # return a tuple (fval, grad, Hessian)
+    #     grad2 = FD(Objective(fun=fun, res=res))
+        grad2 = pypesto.FD(objective2)
 
-    #
+        from pypesto import Objective, FD
+        import numpy as np
+        x_obs33 = np.array([11, 12, 13])
+        res33 = lambda x: x - x_obs33
+        fun33 = lambda x: 0.5 * sum(res33(x) ** 2)
+        obj33 = FD(Objective(fun=fun33, res=res33))
+
+
     # test obj-function
     # param_numpy = [0.0028, 10.5, 0.0165, 6.0]
     # obj_function_test = ObjFunction(dfba_model, data, par_names, 'lin')
@@ -198,15 +229,19 @@ def run_optimization(model_dir,
                          str(len(par_names)) + ") " + str(par_names)
                          + "\n dimension(lb) = " + str(len(ub)))
 
-    problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
-                               copy_objective=False, x_scales=x_sc,
-                               x_guesses=x000)
+    # problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
+    #                            copy_objective=False, x_scales=x_sc,
+    #                            x_guesses=x000)
+    if opt_method == 'Fides':
+        problem1 = pypesto.Problem(objective=grad2, lb=lb, ub=ub,
+                                   copy_objective=False, x_scales=x_sc,
+                                   x_guesses=x000)
+    else:
+        problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
+                                   copy_objective=False, x_scales=x_sc,
+                                   x_guesses=x000)
 
-    # opt_method = ['TNC'] # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','Fides']
-    # nstarts = 2
-    # maxls = 40   #40
-    # maxiter = 10
-    # maxfun = 10
+    # maxls = 40  # maxiter = 10 # maxfun = 10
 
     if do_optimize:
         # Fides: objective function, if no hessian_update is provided, this
@@ -218,8 +253,10 @@ def run_optimization(model_dir,
                                                               'minstep': 1e-9,
                                                               'minfunc': 1e-9})
         elif opt_method == 'Fides':
-            my_hess_update = fides.hessian_approximation.HessianApproximation()
-            my_optimizer = optimize.FidesOptimizer(hessian_update=my_hess_update)
+            # trust region optimizer fides
+            # my_hess_update = fides.hessian_approximation.HessianApproximation()
+            # my_optimizer = optimize.FidesOptimizer(hessian_update=my_hess_update)
+            my_optimizer = optimize.FidesOptimizer()
         else:
             my_optimizer = optimize.ScipyOptimizer(method=opt_method,
                                                    options={'eps': 1e-09})#,
@@ -232,7 +269,6 @@ def run_optimization(model_dir,
 
         print('----- starting optimization...............')
         # record the history
-        name_to_save = str(nstarts) + 'starts_' + opt_method + '_' + cost_funct
         now = datetime.now()
         str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
         file1 = open(os.path.join(dir_to, 'OptStart_' + str_now + '_' +
@@ -297,16 +333,16 @@ if not grid:
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
 
     # Example 1 - Real data:
-    name_ex = "example1_aerobic"
-    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                  "sbml-models/iJR904.xml.gz"
-    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-                 "real_data/data_Fig1.csv"
-    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-             "real_data_laplace_noise/"
-    lo_b = [-3, -1, -4, -1, -3, -3, -3]
-    up_b = [1, 2, 0, 2, 1, 1, 1]
-    x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,-2,-2,-2]]
+    # name_ex = "example1_aerobic"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #               "sbml-models/iJR904.xml.gz"
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #              "real_data/data_Fig1.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+    #          "real_data_laplace_noise/"
+    # lo_b = [-3, -1, -4, -1, -3, -3, -3]
+    # up_b = [1, 2, 0, 2, 1, 1, 1]
+    # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,-2,-2,-2]]
     # x000 = [[-1.95850078, -0.42881366, -1.72887303, -0.58208385],
     #         [-1.95850078, -0.42881366, -1.72887303, -0.58208385]] # ends fast
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271]] # good one
@@ -320,27 +356,26 @@ if not grid:
     #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
     #          -2,-2,-2]]#good one, with sigma = 0.01
-
-
+#
     # Example 6:
-    # name_ex = "example6"
-    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-    #               "sbml-models/iND750.xml.gz"
-    # lo_b = [-3, -1, -3]
-    # up_b = [0, 3, 1]
-    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
-    #              "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
-    #
-    n_starts = 1
-    optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
-    optimization_method = 'SLSQP'
-    # optimization_method = 'Fides'
-    run_parallel = True
-    cost_funct='NLLH_laplace'
-    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] example 6:
+    name_ex = "example6"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                  "sbml-models/iND750.xml.gz"
+    lo_b = [-3, -1, -3]
+    up_b = [0, 3, 1]
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+                 "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/test/"
+
+    n_starts = 10
+    # optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
+    # optimization_method = 'SLSQP'
+    optimization_method = 'Fides'
+    run_parallel = False
+    cost_funct='NLLH_normal'
+    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] #example 6:
 
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
                      optimization_method, run_parallel,
-                     cost_funct, x000=x000)
+                     cost_funct)#, x000=x000)
