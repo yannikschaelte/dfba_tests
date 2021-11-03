@@ -68,13 +68,18 @@ def setup_dfba_model_ex1(dfba_model):
     # of bounds
     # v_gmax = 10.5
     # K_g = 0.0027
+    # fbc:upperFluxBound="cobra_0_bound" -> 0 fbc:lowerFluxBound="R_EX_glc(e)_lower_bound">
+    # id="R_EX_glc(e)_lower_bound" value="-10"
     dfba_model.add_exchange_flux_lb(
         "EX_glc(e)", v_gmax * (Gluc / (K_g + Gluc)) * (1 / (1 + Eth / 20.0)),
         Gluc)   # v_g glucose
+    # fbc:upperFluxBound="cobra_0_bound" -> 0 fbc:lowerFluxBound="R_EX_o2(e)_lower_bound">
+    # id="R_EX_o2(e)_lower_bound" value="-20"
     dfba_model.add_exchange_flux_lb("EX_o2(e)", 15.0 * (Oxy / (0.024 + Oxy)),
                                     Oxy)    # v_o, oxygen
     # v_zmax = 6.0
     # K_z = 0.0165
+    # upperFluxBound="cobra_default_ub" -> 2000 fbc:lowerFluxBound="cobra_0_bound"> -> 0
     dfba_model.add_exchange_flux_lb(
         "EX_xyl_D(e)",
         v_zmax * (Xyl / (K_z + Xyl)) * (1 / (1 + Eth / 20.0)) *
@@ -264,11 +269,11 @@ def get_dfba_model(model_dir, example_name):
     fba_model.solver = "glpk"
     dfba_model = DfbaModel(fba_model)
 
-    if example_name=="example1":
+    if example_name == "example1":
         dfba_model, params = setup_dfba_model_ex1(dfba_model)
-    elif example_name=="example6":
+    elif example_name == "example6":
         dfba_model, params = setup_dfba_model_ex6(dfba_model)
-    elif example_name=="example1_aerobic":
+    elif example_name == "example1_aerobic":
         dfba_model, params = setup_dfba_model_ex1_aerobic(dfba_model)
     else:
         raise ValueError("Choose either 'example1' or 'example1_aerobic' "
