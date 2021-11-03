@@ -119,31 +119,37 @@ class ObjFunction:
                               self.data['time'].values[i]):
                     indx.append(j)
 
-        conc_subset = concentrations.iloc[indx]
+        simu_subset = concentrations.iloc[indx]
 
         # check that first column is time:
         if 'time' not in self.data.columns[0]:
             raise ValueError('First column of the data needs to be "time"-'
                              'column! (= Second column in csv-file)')
 
-        # to check!
-        # check for exemplary observable (obs_names[0]) if simulation values
-        # exist in last time points, if not copy last entries
-        if len(conc_subset) < len(self.data):
+        # copy last entries of simulation, if simulation ends before expected
+        # time points
+        # (check for exemplary observable (obs_names[0]) if simulation values
+        # exist in last time points, if not copy last entries)
+        if len(simu_subset) < len(self.data):
             # copy last results into not simulated time points
-            while len(conc_subset) < len(self.data):
-                row_next = conc_subset[-1:].copy()
+            while len(simu_subset) < len(self.data):
+                row_next = simu_subset[-1:].copy()
                 row_next['time'] = self.data['time'].iloc[
-                    len(conc_subset[obs_names[0]])]
-                    # conc_subset['time'][-1:] + 1
-                conc_subset = conc_subset.append(row_next,ignore_index=True)
+                    len(simu_subset[obs_names[0]])]
+                    # simu_subset['time'][-1:] + 1
+                simu_subset = simu_subset.append(row_next,ignore_index=True)
 
         # check if length of found matched indices equals length of measurement
         # time
-        if len(conc_subset) != len(self.data['time']):
+        if len(simu_subset) != len(self.data['time']):
             raise ValueError('Some time points are lost. Please check if '
                              'inferred t_out is correct, or why the found time'
                              ' subset does not match all measurement times.')
+
+        # add scaling parameter for Biomass
+        if 'sc_biomass' in par_dict.keys():
+            sc_biomass = par_dict['sc_biomass']
+            simu_subset['Biomass'] = sc_biomass * simu_subset['Biomass']
 
         # short-hand
         pi = np.pi
@@ -154,14 +160,14 @@ class ObjFunction:
             # calculate residuals - Least squares
             for i_obs in range(len(obs_names)):
                 res = calculate_residuals(self.data[obs_names[i_obs]],
-                                          conc_subset[obs_names[i_obs]])
+                                          simu_subset[obs_names[i_obs]])
                 cost = cost + np.sum(np.power(res, 2))
 
         elif self.cost_mod == "NLLH_normal":
             # calculate neg-log-likelihood with noise distribution: NORMAL
             for i_obs in range(0, len(obs_names)):
                 res = calculate_residuals(self.data[obs_names[i_obs]],
-                                          conc_subset[obs_names[i_obs]])
+                                          simu_subset[obs_names[i_obs]])
                 nllh = np.log(2* pi* np.power(sigma[i_obs], 2)) + \
                     np.power((res/sigma[i_obs]), 2)
                 cost = cost + 0.5*sum(nllh)
@@ -169,7 +175,7 @@ class ObjFunction:
             # calculate neg-log-likelihood with noise distribution: LAPLACE
             for i_obs in range(0, len(obs_names)):
                 res = calculate_residuals(self.data[obs_names[i_obs]],
-                                          conc_subset[obs_names[i_obs]])
+                                          simu_subset[obs_names[i_obs]])
                 nllh = np.log(2*sigma[i_obs]) + \
                            np.abs(res)/sigma[i_obs]
                 cost = cost + sum(nllh)
