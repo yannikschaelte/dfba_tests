@@ -19,23 +19,17 @@
 grid = False
 
 from os.path import dirname, join, pardir
-
 from cobra.io import read_sbml_model
-
 from dfba import DfbaModel, ExchangeFlux, KineticVariable, Parameter
 from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,
                                                        get_obs_names)
 from examples.get_dfba_model_ex1_ex6 import get_dfba_model, \
     PicklableDFBAModel, modifun
-
 import matplotlib
 if not grid:
     matplotlib.use('TkAgg')
 import os
 import pypesto
-import pypesto.visualize as visualize
-import numpy as np
-import matplotlib.pyplot as plt
 import pypesto.optimize as optimize
 import pandas as pd
 import pickle
@@ -68,7 +62,8 @@ def run_optimization(model_dir,
                      opt_method,
                      parallel,
                      cost_funct,
-                     x000=None):
+                     x000=None,
+                     scaling_param_biomass=False):
     """
     - Build DFBA model, where the FBA part is defined in SBML in the file
       "xxx.xml.gz" (model_dir) and the dynamic part is defined in the function
@@ -105,6 +100,8 @@ def run_optimization(model_dir,
         'NLLH_laplace' (negloglikelihood with laplace noise)
     x000: list, optional
         initial values for parameters optimization
+    scaling_param_biomass: bool
+        add scaling parameter for biomass ?
     """
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
@@ -163,6 +160,9 @@ def run_optimization(model_dir,
         # define new sigma parameters for each observable
         for i_o in range(len(obs_names)):
             params_dict["sigma_" + obs_names[i_o]] = 1
+    # add scaling parameter for Biomass (scaling * simulated_biomass)
+    if scaling_param_biomass:
+        params_dict["sc_biomass"] = 1
 
     # parameter names
     par_names = list(params_dict.keys())  # ["K_g","v_gmax","K_z","v_zmax"]
@@ -171,21 +171,13 @@ def run_optimization(model_dir,
                                cost_funct)
 
     # create objective object for pyPESTO
-    objective2 = pypesto.Objective(fun=obj_function, grad=False, hess=False)
+    objective_pypesto = pypesto.Objective(fun=obj_function, grad=False, hess=False)
     if opt_method == 'Fides':
     # Fides: objective function, if no hessian_update is provided, this
     # function must return a tuple (fval, grad), otherwise this function must
     # return a tuple (fval, grad, Hessian)
     #     grad2 = FD(Objective(fun=fun, res=res))
-        grad2 = pypesto.FD(objective2)
-
-        from pypesto import Objective, FD
-        import numpy as np
-        x_obs33 = np.array([11, 12, 13])
-        res33 = lambda x: x - x_obs33
-        fun33 = lambda x: 0.5 * sum(res33(x) ** 2)
-        obj33 = FD(Objective(fun=fun33, res=res33))
-
+        obj_grad = pypesto.FD(objective_pypesto)
 
     # test obj-function
     # param_numpy = [0.0028, 10.5, 0.0165, 6.0]
@@ -233,11 +225,11 @@ def run_optimization(model_dir,
     #                            copy_objective=False, x_scales=x_sc,
     #                            x_guesses=x000)
     if opt_method == 'Fides':
-        problem1 = pypesto.Problem(objective=grad2, lb=lb, ub=ub,
+        problem1 = pypesto.Problem(objective=obj_grad, lb=lb, ub=ub,
                                    copy_objective=False, x_scales=x_sc,
                                    x_guesses=x000)
     else:
-        problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
+        problem1 = pypesto.Problem(objective=objective_pypesto, lb=lb, ub=ub,
                                    copy_objective=False, x_scales=x_sc,
                                    x_guesses=x000)
 
@@ -333,15 +325,15 @@ if not grid:
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
 
     # Example 1 - Real data:
-    # name_ex = "example1_aerobic"
-    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-    #               "sbml-models/iJR904.xml.gz"
-    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #              "real_data/data_Fig1.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-    #          "real_data_laplace_noise/"
-    # lo_b = [-3, -1, -4, -1, -3, -3, -3]
-    # up_b = [1, 2, 0, 2, 1, 1, 1]
+    name_ex = "example1_aerobic"
+    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+                  "sbml-models/iJR904.xml.gz"
+    data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+                 "real_data/data_Fig1.csv"
+    direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+             "test_scaling_biomass/"
+    lo_b = [-3, -1, -4, -1, -3, -3, -3, -3]
+    up_b = [1, 2, 0, 2, 1, 1, 1, 1]
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,-2,-2,-2]]
     # x000 = [[-1.95850078, -0.42881366, -1.72887303, -0.58208385],
     #         [-1.95850078, -0.42881366, -1.72887303, -0.58208385]] # ends fast
@@ -355,22 +347,24 @@ if not grid:
     #         [-3.98467895  ,1.45992462 ,-1.2082032  , 1.5633985 ],
     #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
-    #          -2,-2,-2]]#good one, with sigma = 0.01
+    #          -2,-2,-2,-1]]#good one, with sigma = 0.01
+    x000 = [[0.18805829, 1.07452258, -4., 0.82564202, -0.65918561,
+             -0.72277778, 0.43567432, 0]]   # SLSQP
 #
     # Example 6:
-    name_ex = "example6"
-    model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
-                  "sbml-models/iND750.xml.gz"
-    lo_b = [-3, -1, -3]
-    up_b = [0, 3, 1]
-    data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
-                 "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
-    direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/test/"
+    # name_ex = "example6"
+    # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
+    #               "sbml-models/iND750.xml.gz"
+    # lo_b = [-3, -1, -3]
+    # up_b = [0, 3, 1]
+    # data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+    #              "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/test/"
 
-    n_starts = 10
+    n_starts = 1
     # optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
-    # optimization_method = 'SLSQP'
-    optimization_method = 'Fides'
+    optimization_method = 'SLSQP'
+    # optimization_method = 'Fides'
     run_parallel = False
     cost_funct='NLLH_normal'
     # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] #example 6:
@@ -378,4 +372,4 @@ if not grid:
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
                      optimization_method, run_parallel,
-                     cost_funct)#, x000=x000)
+                     cost_funct, x000=x000, scaling_param_biomass=True)#, x000=x000)
