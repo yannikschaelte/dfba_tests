@@ -1,4 +1,7 @@
 # PLOT OPTIMIZATION RESULTS
+# plots results from the setup defined in "pd_info_XXX.csv" file,
+# which is located in dir_results
+#
 # from saved results.hdf5 files
 # plot waterfall plot, trajectory plot, parameter plot
 # sampling plots (for sampling plots you need hdf5-file and pickle results
@@ -16,14 +19,37 @@ from pypesto_dfba.optimize_dfba.objective_dfba import (ObjFunction,get_t_simu)
 import pickle
 from dfba.plot.matplotlib import *
 import matplotlib.pyplot as plt
-#
-folder = "SLSQP"
-starts = "1"
-nllh = True
+import os, glob
 
+# plots results from a "pd_info_XXX.csv" file, which is located in dir_results
+
+dir_results = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+              "tests/test/"
+
+dir_pd_info = glob.glob(os.path.join(dir_results, "pd_info*"))
+if len(dir_pd_info)>1:
+    raise Warning("Found more then 1 pd_info-files: " + dir_pd_info +
+                  "Plot results for: " + dir_pd_info[0])
+dir_pd_info_0 = dir_pd_info[0]
+
+pd_info = pd.read_csv(dir_pd_info_0, index_col=0)
+dir_to = pd_info.loc['dir_to'][0]
+example_name = pd_info.loc['example_name'][0]
+model_dir = pd_info.loc['model_dir'][0]
+data_dir = pd_info.loc['data_dir'][0]
+starts = pd_info.loc['nstarts'][0]
+opt_method = pd_info.loc['opt_method'][0]
+cost_func = pd_info.loc['cost_function'][0]
+
+
+# folder = "SLSQP"
+# starts = "100"
+# nllh = True
 # Example 1
 # dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/real_data/" \
 #          + folder + "_" + starts + "/"
+# dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+#          "real_data_laplace_noise/SLSQP_NLLH_laplace_100/"
 # example_name = "example1_aerobic" # example1, example6
 # model_dir = "/home/erika/Documents/Projects/DFBA/"\
 #             "dynamic-fba/sbml-models/iJR904.xml.gz"     # example1
@@ -33,22 +59,21 @@ nllh = True
 #            "simulated_data/simulated_data_sigma_0.25.csv"
 # data_dir = "/home/erika/Documents/Projects/DFBA/results_example1/" \
 #               "real_data/data_Fig1.csv"
-
 # Example 6
 # dir_to = "/home/erika/Documents/Projects/DFBA/results_example6/ex6_synthetic/" + \
 #          folder + "_"+starts+"/"
-dir_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
-example_name = "example6"
-model_dir = "/home/erika/Documents/Projects/DFBA/"\
-            "dynamic-fba/sbml-models/iND750.xml.gz"   # example6
-data_dir = "/home/erika/Documents/Projects/DFBA/results_example6/" \
-           "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
+# dir_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/Ausreiser/"
+# example_name = "example6"
+# model_dir = "/home/erika/Documents/Projects/DFBA/"\
+#             "dynamic-fba/sbml-models/iND750.xml.gz"   # example6
+# data_dir = "/home/erika/Documents/Projects/DFBA/results_example6/" \
+#            "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
 # data_dir = "/home/erika/Documents/Projects/DFBA/results_example6/" \
 #             "simulated_data/simulated_data_sigma_0.01_each_minute_ex6.csv"
 
 
-res_path = "results_" + starts + "starts_" + folder + "_.hdf5"
-res_path = "results_1starts_SLSQP_NLLH_laplace_.hdf5"
+res_path = "results_" + starts + "starts_" + opt_method + "_" + cost_func + "_.hdf5"
+# res_path = "results_1starts_SLSQP_NLLH_laplace_.hdf5"
 
 data = pd.read_csv(data_dir, index_col=0)
 if example_name == "example6":
@@ -107,24 +132,24 @@ t_start, t_end, t_out = get_t_simu(data)
 t_out = 0.1
 
 concentrations_best, trajectories_best = dfba_model.simulate(t_start, t_end,
-                                                             t_out,
-                                                           ["EX_glc__D_e",
-                                                            "EX_etoh_e",
-                                                            "EX_glyc_e"])
+                                                             t_out)#,
+                                                           #["EX_glc__D_e",
+                                                           # "EX_etoh_e",
+                                                           # "EX_glyc_e"])
 ##
-i_t = 32
-delta_Gluc = trajectories_best.iloc[i_t, 1] * concentrations_best.iloc[i_t,1] + \
-    par_dict['D'] * (100- concentrations_best.iloc[i_t,3]) / \
-             concentrations_best.iloc[i_t,5]
-print(delta_Gluc)
+# i_t = 32
+# delta_Gluc = trajectories_best.iloc[i_t, 1] * concentrations_best.iloc[i_t,1] + \
+#     par_dict['D'] * (100- concentrations_best.iloc[i_t,3]) / \
+#              concentrations_best.iloc[i_t,5]
+# print(delta_Gluc)
 # EX_glc__D_e * Biomass + d *(100-Glucose)/Volume
 ##
-plt.rcParams["figure.figsize"] = 9, 5
-plot_trajectories(trajectories_best)
-# plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-plt.show()
-plt.savefig(dir_to + 'exchangeRates_' +
-            name_to_save + '_' + '_x' + str(result_nr) + '.png', bbox_inches='tight')
+# plt.rcParams["figure.figsize"] = 9, 5
+# plot_trajectories(trajectories_best)
+# # plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+# plt.show()
+# plt.savefig(dir_to + 'exchangeRates_' +
+#             name_to_save + '_' + '_x' + str(result_nr) + '.png', bbox_inches='tight')
 ##
 fs=12
 # TRAJECTORIES PLOT
@@ -168,7 +193,8 @@ plt.savefig(dir_to + 'simu_trajectories_' +
 
 # PARAMETER PLOT
 # create a reference point from it
-if not nllh and not example_name=="example1_aerobic":
+if not 'NLLH' in cost_func and not example_name=="example1_aerobic":
+# if not nllh and not example_name=="example1_aerobic":
     if example_name == "example1":
         ref = {'x': [np.log10(params_dict['K_g']), np.log10(params_dict['v_gmax']),
                      np.log10(params_dict['K_z']), np.log10(params_dict['v_zmax'])],
