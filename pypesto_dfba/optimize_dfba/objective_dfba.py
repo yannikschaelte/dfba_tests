@@ -106,7 +106,20 @@ class ObjFunction:
         # sigma[1] = 0.01
         # sigma[2] = 0.01
         print(par_dict)
-        self.model.update_parameters(par_dict)
+        model_params = self.model.dfba_model.parameters
+
+        # models_params into list of strings
+        model_params_l = []
+        for i in range(len(model_params)):
+            model_params_l.append(str(model_params[i]))
+        # reduce par_dict to parameters only used in the model
+        # (exclude sigmas and scaling parameters)
+        model_par_dict = {}
+        for key in model_params_l:
+            model_par_dict[key] = par_dict[key]
+
+        # update & simulate model with given parameters
+        self.model.update_parameters(model_par_dict)
         t_end = t_end + t_out
         concentrations, trajectories = self.model.simulate(t_start, t_end,
                                                            t_out)
@@ -149,7 +162,8 @@ class ObjFunction:
         # add scaling parameter for Biomass
         if 'sc_biomass' in par_dict.keys():
             sc_biomass = par_dict['sc_biomass']
-            simu_subset['Biomass'] = sc_biomass * simu_subset['Biomass']
+            simu_subset = simu_subset.rename(columns={'Biomass':'Biomass_unscaled'})
+            simu_subset['Biomass'] = simu_subset['Biomass_unscaled']* sc_biomass
 
         # short-hand
         pi = np.pi
