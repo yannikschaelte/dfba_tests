@@ -54,8 +54,9 @@ class ObjFunction:
     param_scale:
         [str] ("lin" | "log10") scale of the parameters for optimization
     cost_mod:
-        [str] ("LS" | "NLLH") mode of objective function, either Least-Squares
-        or negative-Log-Likelihood.
+        [str] ("LS" | "NLLH_normal" | "NLLH_laplace") mode of objective
+        function, either Least-Squares or negative-Log-Likelihood,
+        with normal gaussian noise, or laplace noise model.
     """
     # define objective function: initialization with: model,
     # data (measured observables),
@@ -105,7 +106,7 @@ class ObjFunction:
         # sigma[0] = 0.01
         # sigma[1] = 0.01
         # sigma[2] = 0.01
-        print(par_dict)
+        # print(par_dict)
         model_params = self.model.dfba_model.parameters
 
         # models_params into list of strings
@@ -139,18 +140,24 @@ class ObjFunction:
             raise ValueError('First column of the data needs to be "time"-'
                              'column! (= Second column in csv-file)')
 
+        # CIRCUMVENTION PROCEDURE, if simulation fails before last time point
         # copy last entries of simulation, if simulation ends before expected
         # time points
         # (check for exemplary observable (obs_names[0]) if simulation values
         # exist in last time points, if not copy last entries)
+        penalty=0
         if len(simu_subset) < len(self.data):
             # copy last results into not simulated time points
             while len(simu_subset) < len(self.data):
-                row_next = simu_subset[-1:].copy()
+                #row_next = simu_subset[-1:].copy()
+                row_next = concentrations[-1:].copy()   # last simulated entry, regardless of measured times
                 row_next['time'] = self.data['time'].iloc[
                     len(simu_subset[obs_names[0]])]
                     # simu_subset['time'][-1:] + 1
                 simu_subset = simu_subset.append(row_next,ignore_index=True)
+            # add penalty term (t_fail-t_end)^2
+            penalty = (concentrations['time'].iloc[-1] - t_end )**2
+
 
         # check if length of found matched indices equals length of measurement
         # time
@@ -176,6 +183,7 @@ class ObjFunction:
                 res = calculate_residuals(self.data[obs_names[i_obs]],
                                           simu_subset[obs_names[i_obs]])
                 cost = cost + np.sum(np.power(res, 2))
+            cost = cost + penalty
 
         elif self.cost_mod == "NLLH_normal":
             # calculate neg-log-likelihood with noise distribution: NORMAL
@@ -185,6 +193,8 @@ class ObjFunction:
                 nllh = np.log(2* pi* np.power(sigma[i_obs], 2)) + \
                     np.power((res/sigma[i_obs]), 2)
                 cost = cost + 0.5*sum(nllh)
+            cost = cost + penalty
+
         elif self.cost_mod == "NLLH_laplace":
             # calculate neg-log-likelihood with noise distribution: LAPLACE
             for i_obs in range(0, len(obs_names)):
@@ -193,6 +203,7 @@ class ObjFunction:
                 nllh = np.log(2*sigma[i_obs]) + \
                            np.abs(res)/sigma[i_obs]
                 cost = cost + sum(nllh)
+            cost = cost + penalty
         else:
             raise ValueError("Choose which cost-function to use, either "
                              "'cost_mod='LS'' (Least-Squares) or "
