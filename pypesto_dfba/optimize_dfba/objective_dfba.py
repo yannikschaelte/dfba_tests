@@ -121,7 +121,7 @@ class ObjFunction:
 
         # update & simulate model with given parameters
         self.model.update_parameters(model_par_dict)
-        t_end = t_end + t_out
+        #t_end = t_end + t_out
         concentrations, trajectories = self.model.simulate(t_start, t_end,
                                                            t_out)
 
