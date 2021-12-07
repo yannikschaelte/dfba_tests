@@ -33,12 +33,14 @@ import pypesto
 import pypesto.optimize as optimize
 import pandas as pd
 import pickle
+import numpy as np
 import pypesto.sample as sample
 from pypesto.store import (save_to_hdf5, read_from_hdf5)
 # from pypesto import Objective, FD
 from datetime import datetime
 import tempfile
 import fides
+import csv
 
 # activate debugging
 # import logging
@@ -63,7 +65,8 @@ def run_optimization(model_dir,
                      parallel,
                      cost_funct,
                      x000=None,
-                     scaling_param_biomass=False):
+                     scaling_param_biomass=False,
+                     opt_options=None):
     """
     - Build DFBA model, where the FBA part is defined in SBML in the file
       "xxx.xml.gz" (model_dir) and the dynamic part is defined in the function
@@ -102,11 +105,20 @@ def run_optimization(model_dir,
         initial values for parameters optimization
     scaling_param_biomass: bool
         add scaling parameter for biomass ?
+    opt_options: dict
+        optimizer options, defined as in different optimizers
     """
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
     print("Parallel: " + str(parallel))
     name_to_save = str(nstarts) + 'starts_' + opt_method + '_' + cost_funct
+
+    # save optimizer-options, if defined
+    if opt_options is not None:
+        with open(os.path.join(dir_to,'optimizer_options_' + name_to_save +
+                  '.csv'), 'w') as f:
+            for key in opt_options.keys():
+                f.write("%s,%s\n" % (key, opt_options[key]))
 
     # save example settings/inputs
     pd_info = pd.DataFrame(index= ['dir_to', 'example_name',
@@ -177,7 +189,10 @@ def run_optimization(model_dir,
     # function must return a tuple (fval, grad), otherwise this function must
     # return a tuple (fval, grad, Hessian)
     #     grad2 = FD(Objective(fun=fun, res=res))
-        obj_grad = pypesto.FD(objective_pypesto)
+        FDDelta = pypesto.FDDelta(update_condition="distance")
+        obj_grad = pypesto.FD(objective_pypesto, delta_fun=FDDelta,
+                              delta_grad=FDDelta,
+                              delta_res=FDDelta)#delta_fun=0.1, delta_grad=0.1, delta_res=0.1)
 
     # test obj-function
     # param_numpy = [0.0028, 10.5, 0.0165, 6.0]
@@ -190,7 +205,6 @@ def run_optimization(model_dir,
     # dump = pickle.dumps(objective2)
     # pickle.loads(dump)
 
-    #
     # OPTIMIZATION
     # define lower and upper bound for parameters optimization
     # lb = 0 * np.ones((dim_full, 1)) #log
@@ -221,9 +235,6 @@ def run_optimization(model_dir,
                          str(len(par_names)) + ") " + str(par_names)
                          + "\n dimension(lb) = " + str(len(ub)))
 
-    # problem1 = pypesto.Problem(objective=objective2, lb=lb, ub=ub,
-    #                            copy_objective=False, x_scales=x_sc,
-    #                            x_guesses=x000)
     if opt_method == 'Fides':
         problem1 = pypesto.Problem(objective=obj_grad, lb=lb, ub=ub,
                                    copy_objective=False, x_scales=x_sc,
@@ -233,7 +244,6 @@ def run_optimization(model_dir,
                                    copy_objective=False, x_scales=x_sc,
                                    x_guesses=x000)
 
-    # maxls = 40  # maxiter = 10 # maxfun = 10
 
     if do_optimize:
         # Fides: objective function, if no hessian_update is provided, this
@@ -241,22 +251,21 @@ def run_optimization(model_dir,
         # return a tuple (fval, grad, Hessian)
         #for i_o in range(len(opt_method)):
         if opt_method == 'Pyswarm':
-            my_optimizer = optimize.PyswarmOptimizer(options={'swarmsize': 30,
-                                                              'minstep': 1e-9,
-                                                              'minfunc': 1e-9})
+            my_optimizer = optimize.PyswarmOptimizer(opt_options)
+
         elif opt_method == 'Fides':
             # trust region optimizer fides
             # my_hess_update = fides.hessian_approximation.HessianApproximation()
             # my_optimizer = optimize.FidesOptimizer(hessian_update=my_hess_update)
-            my_optimizer = optimize.FidesOptimizer()
+            my_optimizer = optimize.FidesOptimizer(options=opt_options) # default: fatol=1.00E-08, frtol=1.00E-08
+            # opt_options = {"fatol":1E-05, "frtol":1E-05}
         else:
             my_optimizer = optimize.ScipyOptimizer(method=opt_method,
-                                                   options={'eps': 1e-09})#,
+                                                   options=opt_options)#,'eps': 1e-09
                                                             #'maxiter': maxiter})
                                                             # 'maxls':maxls,
                                                             # 'maxfun':maxfun}
                                                             # )  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
-
         # my_optimizer = pypesto.optimize.DlibOptimizer()
 
         print('----- starting optimization...............')
@@ -271,8 +280,11 @@ def run_optimization(model_dir,
         # save optimizer trace (to temporary file fn)
         store_filename = os.path.join(dir_to, 'results_' + name_to_save + '_' +
                                       '.hdf5')
-        history_options = pypesto.HistoryOptions(trace_record=True)#,
-                                                 #storage_file=store_filename) #funktioniert parallel nicht#
+        store_hist_name = os.path.join(dir_to, 'history_' + name_to_save )
+        history_options = pypesto.HistoryOptions(trace_record=True,
+                                                 trace_save_iter= 1,
+                                                 storage_file=store_hist_name +
+                                                              '.hdf5') #funktioniert parallel nicht#
 
         result = optimize.minimize(problem1, optimizer=my_optimizer,
                                    n_starts=nstarts,
@@ -323,7 +335,7 @@ if not grid:
     # data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
     #              "simulated_data_sigma_0_01_25starts_L-BFGS-B.csv"
     # direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/tests/"#
-
+    # -------------------------------------------------------------------------
     # Example 1 - Real data:
     name_ex = "example1_aerobic"
     model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
@@ -331,7 +343,7 @@ if not grid:
     data_direc = "/home/erika/Documents/Projects/DFBA/results_example1/" \
                  "real_data/data_Fig1.csv"
     direc_to = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-             "test_scaling_biomass/"
+             "real_data/scaling_param_Biomass/"
     lo_b = [-3, -1, -4, -1, -3, -3, -3, -3]
     up_b = [1, 2, 0, 2, 1, 1, 1, 1]
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,-2,-2,-2]]
@@ -348,9 +360,18 @@ if not grid:
     #         [-1.33089788  ,1.70595286 ,-1.8141665  , 0.74148177]]
     # x000 = [[-2.78442879,  1.12691846, -3.20043592,  0.87725271,
     #          -2,-2,-2,-1]]#good one, with sigma = 0.01
-    x000 = [[0.18805829, 1.07452258, -4., 0.82564202, -0.65918561,
-             -0.72277778, 0.43567432, 0]]   # SLSQP
-#
+    # x000 = [[0.18805829, 1.07452258, -4., 0.82564202, -0.65918561,
+    #          -0.72277778, 0.43567432, 0]]   # SLSQP
+    # x000 = [[1.5473177, 11.87478, 0.0001, 6.718035,
+    #          0.2191867,
+    #          0.21877746, 0.1895232, 1.3731120]]
+    # x000 = [[ 0.08468379,  1.05896136, -0.20611951,  0.93089288,
+    #            0.2191867,0.21877746, 0.1895232, 1.3731120
+    #            ]]
+    scaling_param_biomass = True
+    x000 = [[0.18999292,  1.07469067, -3.59855968,  0.82761138,
+             -0.65918561, -0.65993364, -0.72224595,  0.1376983]]
+    # -------------------------------------------------------------------------
     # Example 6:
     # name_ex = "example6"
     # model_direc = "/home/erika/Documents/Projects/DFBA/dynamic-fba/" \
@@ -359,7 +380,13 @@ if not grid:
     # up_b = [0, 3, 1]
     # data_direc = "/home/erika/Documents/Projects/DFBA/results_example6/" \
     #              "simulated_data/simulated_data_sigma_0.25_ex6_Ausreiser.csv"
-    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/test/"
+    # direc_to = "/home/erika/Documents/Projects/DFBA/results_example6/tests/test/FD_distance/"
+    # scaling_param_biomass = False
+    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] #example 6:
+    # x000 = [[-1.35751893 , 0.92906742, -2.13686594]]
+    # x000 = [[-1.04126903,  0.86420252, 0.2308703]]  #Ausreißer, SLSQP, NLLH_normal, fval=17
+    # x000 = [[-1.64308912, 2.99454927, -0.09060505]]
+    # -------------------------------------------------------------------------
 
     n_starts = 1
     # optimization_method = 'TNC'  # Pyswarm']#'Pyswarm']#,'TNC']#],'L-BFGS-B','SLSQP']
@@ -367,9 +394,43 @@ if not grid:
     # optimization_method = 'Fides'
     run_parallel = False
     cost_funct='NLLH_normal'
-    # x000 = [[[0.08348173, 1.23262928, 0.85721095]]] #example 6:
 
+    # Define dict for Optimizer Options (Pyswarm, Fides, Scipy)
+    # opt_options = {'swarmsize': 30,
+    #                'minstep': 1e-9,
+    #                'minfunc': 1e-9} #Pyswarm
+    # opt_options = {'eps': 1e-09,'maxiter': maxiter,
+    #                'maxls':maxls,'maxfun':maxfun, 'eta':0.5}  #Scipy,basic optimizer'L-BFGS-B'
+    # opt_options = {"fatol": 1E-05, "frtol": 1E-05, "maxiter":5}  # Fides
+    opt_options={}
+    # DEFAULT_OPTIONS_FIDES = {
+    #     Options.MAXITER: 1e3,
+    #     Options.MAXTIME: np.inf,
+    #     Options.FATOL: 1e-8,
+    #     Options.FRTOL: 1e-8,
+    #     Options.XTOL: 0,
+    #     Options.GATOL: 1e-6,
+    #     Options.GRTOL: 0,
+    #     Options.SUBSPACE_DIM: SubSpaceDim.TWO,
+    #     Options.STEPBACK_STRAT: StepBackStrategy.REFLECT,
+    #     Options.THETA_MAX: 0.95,
+    #     Options.DELTA_INIT: 1.0,
+    #     Options.MU: 0.25,  # [NodedalWright2006]
+    #     Options.ETA: 0.75,  # [NodedalWright2006]
+    #     Options.GAMMA1: 1 / 4,  # [NodedalWright2006]
+    #     Options.GAMMA2: 2,  # [NodedalWright2006]
+    #     Options.REFINE_STEPBACK: False,
+    #     Options.SCALED_GRADIENT: False,
+
+
+    # run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
+    #                  n_starts,
+    #                  optimization_method, run_parallel,
+    #                  cost_funct, x000=x000, scaling_param_biomass=True,
+    #                  opt_options=opt_options)
     run_optimization(model_direc, name_ex, data_direc, direc_to, lo_b, up_b,
                      n_starts,
                      optimization_method, run_parallel,
-                     cost_funct, x000=x000, scaling_param_biomass=True)#, x000=x000)
+                     cost_funct, x000=x000,
+                     scaling_param_biomass=scaling_param_biomass,
+                     opt_options=opt_options)
