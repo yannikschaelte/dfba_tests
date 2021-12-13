@@ -1,0 +1,13 @@
+matplotlib~=3.3.2
+pypesto~=0.2.3
+numpy~=1.19.4
+pandas~=1.2.0
+cobra~=0.20.0
+dfba~=0.1.8+22.ga785cb6.dirty
+plotly~=4.12.0
+fides~=0.2.4
+setuptools~=50.3.1
+optlang~=1.4.4
+symengine~=0.6.1
+sympy~=1.6.2
+depinfo~=1.6.0
