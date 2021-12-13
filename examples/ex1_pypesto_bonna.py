@@ -16,7 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-grid = False
+grid = False    # shall this script run on your laptop? -> grid=False
+                # shall this script run on bonna? -> grid=True
+#                   (-> calling the run_optimization function is called
+#                   differently on the bonna-cluster)
 
 from os.path import dirname, join, pardir
 from cobra.io import read_sbml_model
@@ -81,9 +84,10 @@ def run_optimization(model_dir,
     -----------
     model_dir: str
         directory to SBML file with ending "xxx.xml.gz"
-    examplename: str
-        which dfba-model should be loaded ("example1",
-        "example1_aerobic" (model for real data),  "example6" (toy model))
+    examplename: str ("example1"|"example1_aerobic"|"example6")
+        which dfba-model should be loaded ("example1"|
+        "example1_aerobic" (model for real data),  "example6" (toy model),
+        the examplenames are defined in get_dfba_model_ex1_ex6.py)
     data_dir: str
         directory to data file, where second column needs to be "time"-column,
         (first column can be indices or whatever)
@@ -94,17 +98,19 @@ def run_optimization(model_dir,
     nstarts: int
         number of starts
     opt_method: str
-        optimization method ("SLSQP"|"L-BFGS-B"|"TNC"|"Pyswarm"|)
+        optimization method ("SLSQP"|"L-BFGS-B"|"TNC"|"Pyswarm"|"Fides")
     parallel: bool
         should optimization be run in paralllel?
     cost_funct: str
         'LS' (Least Squares objective function)
         'NLLH_normal' (negloglikelihood with normal distributed noise)
         'NLLH_laplace' (negloglikelihood with laplace noise)
-    x000: list, optional
-        initial values for parameters optimization
+    x000: list or string ("random_seed" optional TODO)
+        list of initial values for parameters optimization or
+        "random_seed"-flag for initializing the optimization with the same
+        random seeds (TODO)
     scaling_param_biomass: bool
-        add scaling parameter for biomass ?
+        adding scaling parameter for biomass ?
     opt_options: dict
         optimizer options, defined as in different optimizers
     """
@@ -119,6 +125,7 @@ def run_optimization(model_dir,
                   '.csv'), 'w') as f:
             for key in opt_options.keys():
                 f.write("%s,%s\n" % (key, opt_options[key]))
+
 
     # save example settings/inputs
     pd_info = pd.DataFrame(index= ['dir_to', 'example_name',
@@ -159,12 +166,11 @@ def run_optimization(model_dir,
     # )
     # print(concentrations)
 
+    # Read Data
     data = pd.read_csv(data_dir, index_col=0)
 
-    #
-    # initialize Objective Function Class
+    # parameter scale, "lin" | "log10"
     param_scale = 'log10'
-    # cost_funct = "LS" |  "NLLH_normal" | "NLLH_laplace"
 
     # observable names
     obs_names = get_obs_names(data)
@@ -179,6 +185,7 @@ def run_optimization(model_dir,
     # parameter names
     par_names = list(params_dict.keys())  # ["K_g","v_gmax","K_z","v_zmax"]
 
+    # initialize Objective Function Class
     obj_function = ObjFunction(dfba_model, data, par_names, param_scale,
                                cost_funct)
 
@@ -194,6 +201,14 @@ def run_optimization(model_dir,
                               delta_grad=FDDelta,
                               delta_res=FDDelta)#delta_fun=0.1, delta_grad=0.1, delta_res=0.1)
 
+    # initial values, random seed
+    # if isinstance(x000, str):
+    #     if x000 == "random_seed":
+    #         x000 = [(nstarts, len(par_names))]  #TODO
+    #     else:
+    #         raise TypeError(
+    #             "x000 should either be defined as 'random_seed' or "
+    #             "a list of floats.")
     # test obj-function
     # param_numpy = [0.0028, 10.5, 0.0165, 6.0]
     # obj_function_test = ObjFunction(dfba_model, data, par_names, 'lin')
@@ -214,8 +229,6 @@ def run_optimization(model_dir,
     # par_dict_original['v_gmax'] = 10.5
     # par_dict_original['K_z'] = 0.0165
     # par_dict_original['v_zmax'] = 6.0
-
-    do_optimize = True
 
     if param_scale == 'lin':
         x_sc = ['lin']*len(params_dict)
@@ -245,84 +258,80 @@ def run_optimization(model_dir,
                                    x_guesses=x000)
 
 
-    if do_optimize:
-        # Fides: objective function, if no hessian_update is provided, this
-        # function must return a tuple (fval, grad), otherwise this function must
-        # return a tuple (fval, grad, Hessian)
-        #for i_o in range(len(opt_method)):
-        if opt_method == 'Pyswarm':
-            my_optimizer = optimize.PyswarmOptimizer(opt_options)
+    # Fides: objective function, if no hessian_update is provided, this
+    # function must return a tuple (fval, grad), otherwise this function must
+    # return a tuple (fval, grad, Hessian)
+    #for i_o in range(len(opt_method)):
+    if opt_method == 'Pyswarm':
+        my_optimizer = optimize.PyswarmOptimizer(opt_options)
 
-        elif opt_method == 'Fides':
-            # trust region optimizer fides
-            # my_hess_update = fides.hessian_approximation.HessianApproximation()
-            # my_optimizer = optimize.FidesOptimizer(hessian_update=my_hess_update)
-            my_optimizer = optimize.FidesOptimizer(options=opt_options) # default: fatol=1.00E-08, frtol=1.00E-08
-            # opt_options = {"fatol":1E-05, "frtol":1E-05}
-        else:
-            my_optimizer = optimize.ScipyOptimizer(method=opt_method,
-                                                   options=opt_options)#,'eps': 1e-09
-                                                            #'maxiter': maxiter})
-                                                            # 'maxls':maxls,
-                                                            # 'maxfun':maxfun}
-                                                            # )  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
-        # my_optimizer = pypesto.optimize.DlibOptimizer()
+    elif opt_method == 'Fides':
+        # trust region optimizer fides
+        # my_hess_update = fides.hessian_approximation.HessianApproximation()
+        # my_optimizer = optimize.FidesOptimizer(hessian_update=my_hess_update)
+        my_optimizer = optimize.FidesOptimizer(options=opt_options) # default: fatol=1.00E-08, frtol=1.00E-08
+        # opt_options = {"fatol":1E-05, "frtol":1E-05}
+    else:
+        my_optimizer = optimize.ScipyOptimizer(method=opt_method,
+                                               options=opt_options)#,'eps': 1e-09
+                                                        #'maxiter': maxiter})
+                                                        # 'maxls':maxls,
+                                                        # 'maxfun':maxfun}
+                                                        # )  #  'eta':0.5})  # basic optimizer'L-BFGS-B'
+    # my_optimizer = pypesto.optimize.DlibOptimizer()
 
-        print('----- starting optimization...............')
-        # record the history
-        now = datetime.now()
-        str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
-        file1 = open(os.path.join(dir_to, 'OptStart_' + str_now + '_' +
-                                  name_to_save + '.txt'), "a")
-        file1.close()
+    print('----- starting optimization...............')
+    # record the history
+    now = datetime.now()
+    str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
+    file1 = open(os.path.join(dir_to, 'OptStart_' + str_now + '_' +
+                              name_to_save + '.txt'), "a")
+    file1.close()
 
+    # save optimizer trace (to temporary file fn)
+    store_filename = os.path.join(dir_to, 'results_' + name_to_save + '_' +
+                                  '.hdf5')
+    store_hist_name = os.path.join(dir_to, 'history_' + name_to_save )
+    history_options = pypesto.HistoryOptions(trace_record=True,
+                                             trace_save_iter= 1,
+                                             storage_file=store_hist_name +
+                                                          '.hdf5')
 
-        # save optimizer trace (to temporary file fn)
-        store_filename = os.path.join(dir_to, 'results_' + name_to_save + '_' +
-                                      '.hdf5')
-        store_hist_name = os.path.join(dir_to, 'history_' + name_to_save )
-        history_options = pypesto.HistoryOptions(trace_record=True,
-                                                 trace_save_iter= 1,
-                                                 storage_file=store_hist_name +
-                                                              '.hdf5') #funktioniert parallel nicht#
+    result = optimize.minimize(problem1, optimizer=my_optimizer,
+                               n_starts=nstarts,
+                               history_options=history_options,
+                               engine=engine,
+                               options={'allow_failed_starts': False})
 
-        result = optimize.minimize(problem1, optimizer=my_optimizer,
-                                   n_starts=nstarts,
-                                   history_options=history_options,
-                                   engine=engine,
-                                   options={'allow_failed_starts': False})
+    # save optimization result as hdf5 file
+    pypesto_result_writer = save_to_hdf5.OptimizationResultHDF5Writer(
+        store_filename)
+    pypesto_result_writer.write(result, overwrite=True)
+    pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
+        store_filename)
+    pypesto_problem_writer.write(problem1, overwrite=True)
 
-        # save optimization result as hdf5 file
-        pypesto_result_writer = save_to_hdf5.OptimizationResultHDF5Writer(
-            store_filename)
-        pypesto_result_writer.write(result, overwrite=True)
-        pypesto_problem_writer = save_to_hdf5.ProblemHDF5Writer(
-            store_filename)
-        pypesto_problem_writer.write(problem1, overwrite=True)
+    # store result in pickle
+    now = datetime.now()
+    str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
+    file2 = open(os.path.join(dir_to, 'OptEnd_' + str_now + '_' +
+                              name_to_save + '.txt'), "a")
+    file2.close()
+    with open(os.path.join(dir_to, 'result_optimize_result_' +
+                                   name_to_save + '.pickle'), 'wb') as result_file:
+        pickle.dump(result.optimize_result, result_file)  # or the full result object
+        result_file.close()
 
-        # store result in pickle
-        now = datetime.now()
-        str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
-        file2 = open(os.path.join(dir_to, 'OptEnd_' + str_now + '_' +
-                                  name_to_save + '.txt'), "a")
-        file2.close()
-        with open(os.path.join(dir_to, 'result_optimize_result_' +
-                                       name_to_save + '.pickle'), 'wb') as result_file:
-            pickle.dump(result.optimize_result, result_file)  # or the full result object
-            result_file.close()
+    # save main results in csv
+    df = result.optimize_result.as_dataframe(
+        ['fval', 'fval0', 'n_fval', 'x', 'x0', 'grad', 'n_grad', 'n_hess',
+         'n_res', 'n_sres', 'time'])
+    df['lb'] = str(lb)
+    df['ub'] = str(ub)
 
-        # save main results in csv
-        df = result.optimize_result.as_dataframe(
-            ['fval', 'fval0', 'n_fval', 'x', 'x0', 'grad', 'n_grad', 'n_hess',
-             'n_res', 'n_sres', 'time'])
-        df['lb'] = str(lb)
-        df['ub'] = str(ub)
+    df.to_csv(os.path.join(dir_to, 'df_results_' + name_to_save+ ".csv"))
 
-        df.to_csv(os.path.join(dir_to, 'df_results_' + name_to_save+ ".csv"))
-
-        # data.to_csv(os.path.join(dir_to, "simulated_data_sigma_0_01_" +
-        #                          name_to_save + ".csv"))
-        print("Successfully finished Optimization! ")
+    print("Successfully finished Optimization! ")
 
 
 if not grid:
@@ -371,6 +380,7 @@ if not grid:
     scaling_param_biomass = True
     x000 = [[0.18999292,  1.07469067, -3.59855968,  0.82761138,
              -0.65918561, -0.65993364, -0.72224595,  0.1376983]]
+    # x000 = "random_seed"
     # -------------------------------------------------------------------------
     # Example 6:
     # name_ex = "example6"
