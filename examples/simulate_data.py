@@ -1,3 +1,5 @@
+# produce synthetic data for example 1
+
 from os.path import dirname, join, pardir
 
 from cobra.io import read_sbml_model

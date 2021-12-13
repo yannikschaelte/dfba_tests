@@ -1,3 +1,5 @@
+# STAND: 06.Juni.2021 (not tested on newer functions of ex1_pypesto_bonna.py)
+#
 # Copyright (C) 2018, 2019 Columbia University Irving Medical Center,
 #     New York, USA
 # Copyright (C) 2019 Novo Nordisk Foundation Center for Biosustainability,

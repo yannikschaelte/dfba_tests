@@ -1,3 +1,4 @@
+# produce synthetic data for example 2
 from os.path import dirname, join, pardir
 
 from cobra.io import read_sbml_model
@@ -34,14 +35,14 @@ dfba_model = PicklableDFBAModel(model_dir, modifun, example_name="example6")
 t_out = 1.0
 t_end = 16
 # dfba_model.solver_data.set_display("none")
-concentrations, trajectories = dfba_model.simulate(
-    0.0, t_end, t_out)
+
+concentrations, trajectories = dfba_model.simulate(0.0, t_end, t_out)
 ##
 # simulate data
-mu, sigma = 0, 0.25
+mu, sigma = 0, 0.01
 n_obs = 1
 # create dataframe with first column 'time' and subsequent columns observable
-index = [0,1,2,4,6,8,10,12,14]
+index = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 noise = np.zeros((n_obs, len(index)))
 for i in range(n_obs):
     noise[i, :] = np.random.normal(mu, sigma, len(index))
@@ -55,7 +56,8 @@ data = pd.concat([data_time, data_biomass], axis=1)
 now = datetime.now()
 str_now = now.strftime(format="%Y-%m-%d %H:%M:%S").replace(' ', '_')
 
-data.to_csv(os.path.join(dir_to, "simulated_data_sigma_" + str(sigma) + ".csv"))
+data.to_csv(os.path.join(dir_to, "simulated_data_sigma_" + str(sigma) +
+                         "_each_minute_ex6.csv"))
 
 ##
 colors = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f']
@@ -66,3 +68,6 @@ for i_o in range(0, len(observables)):
              label='simulation ' + observables[i_o], color=colors[i_o])
     plt.plot(data['time'], data[observables[i_o]], 'x', color=colors[i_o],
              label='data' + observables[i_o])
+
+plt.savefig(os.path.join(dir_to, "simulated_data_sigma_" + str(sigma) +
+                         "_each_minute_ex6.png"))
