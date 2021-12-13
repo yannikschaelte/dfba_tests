@@ -18,6 +18,7 @@ def get_t_simu(data):
     for i_st in range(len(measured_time)-1):
         t_steps[i_st] = measured_time.iloc[i_st+1]-measured_time.iloc[i_st]
     t_out = np.round(min(t_steps),decimals=5)
+    t_out = 0.05
 
     return t_start, t_end, t_out
 
@@ -97,7 +98,7 @@ class ObjFunction:
 
         # get t_start, t_end, t_out from measured time
         t_start, t_end, t_out = get_t_simu(self.data)
-
+        #t_out = 0.05
         # Update Parameters
         # par_dict["K_g"] = 0.0027
         # par_dict["v_gmax"] = 10.5
