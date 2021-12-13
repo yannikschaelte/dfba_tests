@@ -1,10 +1,13 @@
 # PLOT OPTIMIZATION RESULTS
-# plots results from the setup defined in "pd_info_XXX.csv" file,
-# which is located in dir_results
+# to plot the optiomization results, you should have:
+# - "pd_info_XXX.csv" file (which contains all necessary problem information)
+# - hdf5-file "results_XXXstarts_SLSQP_NLLH_normal_.hdf5"
+# which should be located in the directory of dir_results.
 #
-# from saved results.hdf5 files
 # plot waterfall plot, trajectory plot, parameter plot
-# sampling plots (for sampling plots you need hdf5-file and pickle results
+# saves waterfall_plot.png, simu_trajectory_plot.png, parameter.png into the
+# directory of dir_results
+# (sampling plots (for sampling plots you need hdf5-file and pickle results)
 # (pickle: containing the result.sampling)
 # ####################################################################
 import pandas as pd
@@ -20,15 +23,24 @@ import pickle
 from dfba.plot.matplotlib import *
 import matplotlib.pyplot as plt
 import os, glob
+import time
 
 # plots results from a "pd_info_XXX.csv" file, which is located in dir_results
 
 # dir_results = "/home/erika/Documents/Projects/DFBA/results_example6/" \
 #               "tests/test/"
+# dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+#               "real_data_laplace_noise/SLSQP_NLLH_laplace_100/"
+# dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+#               "real_data/scaling_param_Biomass/good/"
+# dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+#                "real_data/Fides/Fides_NLLH_normal_32/"
+dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
+              "real_data/211207_tout0_05_SLSQP_NLLH_normal_100/"
 
 get_results_from_hdf5 = True  # get results from hdf5-file, if false, define x_hat-vector
 read_from_history = False
-result_nr = 8  # which opt. start should be simulated and plotted?
+result_nr = 0  # which opt. start should be simulated and plotted?
 
 if read_from_history:
     hist_id = 'ges'
@@ -37,12 +49,7 @@ if read_from_history:
                             str(hist_id) + ".hdf5"
     hdf5_history_filename = "history_32starts_Fides_NLLH_normal.hdf5"
 
-# dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-#               "real_data_laplace_noise/SLSQP_NLLH_laplace_100/"
-# dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-#               "real_data/scaling_param_Biomass/good/"
-dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
-               "real_data/Fides2/Fides_NLLH_normal_32/"
+
 
 param_scale = 'log10'
 with_scaling_biomass = True
@@ -137,7 +144,6 @@ dfba_model = PicklableDFBAModel(model_dir, modifun, example_name)
 
 
 # dfba_model = PicklableDFBAModel(model_dir, modifun, example_name)
-#
 if get_results_from_hdf5:
     hdf5_reader = \
         read_from_hdf5.OptimizationResultHDF5Reader(
@@ -198,6 +204,19 @@ concentrations_best, trajectories_best = dfba_model.simulate(t_start, t_end,
                                                            #["EX_glc__D_e",
                                                            # "EX_etoh_e",
                                                           # "EX_glyc_e"])
+                                                          ##
+# t0 = time.time()
+# concentrations2, trajectories2 = dfba_model.simulate(t_start, t_end,
+#                                                              0.25)#,
+# t2 = time.time()
+# print("tout = 0.25: "+str(t2-t0))
+#
+# t0 = time.time()
+# concentrations3, trajectories3 = dfba_model.simulate(t_start, t_end,
+#                                                              0.05)#,
+# t2 = time.time()
+# print("tout = 0.05: "+str(t2-t0))
+##
 # Print Objective Function Value
 # Fill par_dict_full with sigma keys and scaling-parameter
 obs_names = get_obs_names(data)
@@ -219,28 +238,50 @@ cost = obj_function_test(x_hat)
 
 
 # -----------------------------------------------------------------------
-#
+##
 fs=12
 # TRAJECTORIES PLOT
 observables = data.columns
-colors = ['#fff7fb', '#ece2f0', '#d0d1e6', '#a6bddb', '#67a9cf', '#3690c0',
-          '#02818a', '#016c59', '#014636']
+# colors2 = ['#fff7fb', '#ece2f0', '#d0d1e6', '#a6bddb', '#67a9cf', '#3690c0',
+#           '#02818a', '#016c59', '#014636']
 colors = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f']
 
 plt.figure(figsize=[7,5])
 for i_o in range(1, len(observables)):
+    # LOG SCALE & SCALING BIOMASS
     if observables[i_o]=='Biomass' and with_scaling_biomass and param_scale == 'log10':
         plt.plot(concentrations_best['time'],
                  concentrations_best[observables[i_o]]* 10**x_hat[-1],
                  label='simulation ' + observables[i_o], color=colors[i_o])
+        # plt.plot(concentrations2['time'],
+        #          concentrations2[observables[i_o]] * 10 ** x_hat[-1],
+        #          label='t_out = 0.25, simulation ' + observables[i_o],
+        #          color=colors[i_o], ls='--')
+        # plt.plot(concentrations3['time'],
+        #          concentrations3[observables[i_o]] * 10 ** x_hat[-1],
+        #          label='t_out = 0.05, simulation ' + observables[i_o],
+        #          color=colors[i_o], ls='-.')
+    # LINEAR SCALE & SCALING_BIOMASS
     elif observables[i_o]=='Biomass' and with_scaling_biomass and param_scale == 'lin':
         plt.plot(concentrations_best['time'],
                  concentrations_best[observables[i_o]] * x_hat[-1],
                  label='simulation ' + observables[i_o], color=colors[i_o])
+        # plt.plot(concentrations2['time'],
+        #          concentrations2[observables[i_o]] * x_hat[-1],
+        #          label='t_out = 0.25, simulation ' + observables[i_o],
+        #          color=colors[i_o], ls='--')
     else:
         plt.plot(concentrations_best['time'],
                  concentrations_best[observables[i_o]],
                  label='simulation ' + observables[i_o], color=colors[i_o])
+        # plt.plot(concentrations2['time'],
+        #          concentrations2[observables[i_o]],
+        #          label='t_out = 0.25, simulation ' + observables[i_o],
+        #          color=colors[i_o], ls='--')
+        # plt.plot(concentrations3['time'],
+        #          concentrations3[observables[i_o]],
+        #          label='t_out = 0.05, simulation ' + observables[i_o],
+        #          color=colors[i_o], ls='-.')
     # if example_name == "example1_aerobic":
     #     plt.errorbar(data['time'], data[observables[i_o]],
     #                  yerr=data['error_Biomass'], fmt='x', color=colors[i_o],
@@ -254,7 +295,7 @@ if plot_extra:
                  concentrations_best[plot_extra[i_e]],
                  label='simulation ' + plot_extra[i_e], color=colors[i_o+1+i_e])
 plt.title('Best start # ' + str(result_nr) +
-          '\n' + 'cost=' + str(np.round(cost,2)) +
+          #'\n' + 'cost=' + str(np.round(cost,2)) +
           '\n' + str(x_hat))
 plt.xlabel('Time [h]', fontsize=fs)
 plt.ylabel('Concentration [g/L]', fontsize=fs)
@@ -270,7 +311,7 @@ plt.savefig(os.path.join(dir_to, 'simu_trajectories_' +
             name_to_save + '_' + '_x' + str(result_nr) + '.png'),
             bbox_inches='tight')
 # plt.close()
-
+##
 #----------------------------------------------------------------------------
 # PARAMETER PLOT
 if result_nr==0:
@@ -304,7 +345,6 @@ if result_nr==0:
             par_names.append("sigma_" + observables[i_o])
         ax = visualize.parameters(result,
                                   balance_alpha=False, size=[10, 6])
-
 
     ax.set_yticklabels(par_names)
 
@@ -358,114 +398,114 @@ print(cost)
 # -------------------------------------------------------------------------
 # ----------------SAMPLING ------------------------------------------------
 
-sam_method = "AM"
-n_samples = 10000
-opt_method = "SLSQP"
-n_multistart = "200"
-
-example_name = "example1"
-
-dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/bonna/SLSQP_200/"
-
-dir_result_object = dir_to +"results_after_sampling_" + str(n_samples) + \
-                     "_" + sam_method + "_1ch_results_" + n_multistart + \
-                     "starts_" + opt_method + "_.hdf5"
-
-dir_sampling = dir_to + "sampling_" + str(n_samples) + "_" + sam_method + \
-               "_1ch_results_" + n_multistart + "starts_" + opt_method + \
-               "_.pickle"
-
-hdf5_reader = \
-    read_from_hdf5.OptimizationResultHDF5Reader(dir_result_object)
-result1 = hdf5_reader.read()
-result_sampling = pickle.load(open(dir_sampling, "rb"))
-
-result1.sample_result = result_sampling
-##
-if example_name == "example1":
-    params_dict = {"K_g": 0.0027,
-               "v_gmax": 10.5,
-               "K_z": 0.0165,
-               "v_zmax": 6.0}
-elif example_name == "example6":
-    params_dict = {"D": 0.044,
-               "Vgmax": 8.5}
-
-import pypesto.sample as sample
-sample.geweke_test(result=result1)
-
-
+# sam_method = "AM"
+# n_samples = 10000
+# opt_method = "SLSQP"
+# n_multistart = "200"
+#
+# example_name = "example1"
+#
+# dir_to = "/home/erika/Documents/Projects/DFBA/results_example1/bonna/SLSQP_200/"
+#
+# dir_result_object = dir_to +"results_after_sampling_" + str(n_samples) + \
+#                      "_" + sam_method + "_1ch_results_" + n_multistart + \
+#                      "starts_" + opt_method + "_.hdf5"
+#
+# dir_sampling = dir_to + "sampling_" + str(n_samples) + "_" + sam_method + \
+#                "_1ch_results_" + n_multistart + "starts_" + opt_method + \
+#                "_.pickle"
+#
+# hdf5_reader = \
+#     read_from_hdf5.OptimizationResultHDF5Reader(dir_result_object)
+# result1 = hdf5_reader.read()
+# result_sampling = pickle.load(open(dir_sampling, "rb"))
+#
+# result1.sample_result = result_sampling
+# ##
+# if example_name == "example1":
+#     params_dict = {"K_g": 0.0027,
+#                "v_gmax": 10.5,
+#                "K_z": 0.0165,
+#                "v_zmax": 6.0}
+# elif example_name == "example6":
+#     params_dict = {"D": 0.044,
+#                "Vgmax": 8.5}
+#
+# import pypesto.sample as sample
+# sample.geweke_test(result=result1)
+#
+#
+# # ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
+# #                                          size=(12, 5))
+# # for i in range(len(params_dict)):
+#     # ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
+#
 # ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
-#                                          size=(12, 5))
+#                                          full_trace=True, size=(12,5))
 # for i in range(len(params_dict)):
-    # ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
-
-ax = visualize.sampling_parameters_trace(result1, use_problem_bounds=True,
-                                         full_trace=True, size=(12,5))
-for i in range(len(params_dict)):
-    ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
-
-# ax.set_ylabel(list(params_dict.keys())[3])
-plt.savefig(dir_to + 'sampling_'+sam_method+'_' + str(n_samples) + '.png',
-            bbox_inches='tight')
-plt.show()
-# plt.close()
-##
-
-visualize.sampling_fval_trace(result1, size=(12, 5))
-plt.savefig(dir_to+'sampling_fval_' + sam_method+'_' + str(n_samples) + '.png',
-            bbox_inches='tight')
-# plt.close()
-##
-ax = visualize.sampling_scatter(result1, size=[13, 6])
-# ax = visualize.sampling_parameter_traces(res, use_problem_bounds=False, size=(12,5))
-if example_name == "example6":
-    ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
-    ax.fig.axes[2].set_ylabel(list(params_dict.keys())[1])
-    ax.fig.axes[2].set_xlabel(list(params_dict.keys())[0])
-    ax.fig.axes[3].set_xlabel(list(params_dict.keys())[1])
-    ax.fig.axes[0].set_xlim(result1.problem.lb[0],result1.problem.ub[0])
-    ax.fig.axes[2].set_xlim(result1.problem.lb[0], result1.problem.ub[0])
-    ax.fig.axes[1].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
-    ax.fig.axes[3].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
-    ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
-    ax.fig.axes[1].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
-    ax.fig.axes[2].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
-    ax.fig.axes[3].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
-elif example_name == "example1":
-    ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
-    ax.fig.axes[4].set_ylabel(list(params_dict.keys())[1])
-    ax.fig.axes[8].set_ylabel(list(params_dict.keys())[2])
-    ax.fig.axes[12].set_ylabel(list(params_dict.keys())[3])
-    ax.fig.axes[12].set_xlabel(list(params_dict.keys())[0])
-    ax.fig.axes[13].set_xlabel(list(params_dict.keys())[1])
-    ax.fig.axes[14].set_xlabel(list(params_dict.keys())[2])
-    ax.fig.axes[15].set_xlabel(list(params_dict.keys())[3])
-    ax.fig.axes[12].set_xlim(result1.problem.lb[0]-0.5, result1.problem.ub[0]+0.5)
-    ax.fig.axes[13].set_xlim(result1.problem.lb[1]-0.5, result1.problem.ub[1]+0.5)
-    ax.fig.axes[14].set_xlim(result1.problem.lb[2]-0.5, result1.problem.ub[2]+0.5)
-    ax.fig.axes[15].set_xlim(result1.problem.lb[3]-0.5, result1.problem.ub[3]+0.5)
-    ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
-    ax.fig.axes[4].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
-    ax.fig.axes[8].set_ylim(result1.problem.lb[2], result1.problem.ub[2])
-    ax.fig.axes[12].set_ylim(result1.problem.lb[3], result1.problem.ub[3])
-
-
-plt.savefig(dir_to + 'sampling_scatter_'+sam_method+'_' + str(n_samples) +
-            '.png', bbox_inches='tight')
-# plt.close()
-##
-# read existing files
-# n_samples=10000
-# with open('/home/erika/Documents/Projects/DFBA/results_sampling_AM_' +str(n_samples) + '.pickle',
-#           'rb') as result_file:
-#     result = pickle.load(result_file)  # or the full result object
-#     result_file.close()
-##
-ax = visualize.sampling_1d_marginals(result1)
-ax[0][0].set_xlabel(list(params_dict.keys())[0])
-ax[0][1].set_xlabel(list(params_dict.keys())[1])
-ax[1][0].set_xlabel(list(params_dict.keys())[2])
-ax[1][1].set_xlabel(list(params_dict.keys())[3])
-# plt.savefig(dir_to+ 'sampling_1d_marginals_AM_' +str(n_samples) +'.png', bbox_inches = 'tight')
+#     ax.figure.axes[i].set_ylabel(list(params_dict.keys())[i])
+#
+# # ax.set_ylabel(list(params_dict.keys())[3])
+# plt.savefig(dir_to + 'sampling_'+sam_method+'_' + str(n_samples) + '.png',
+#             bbox_inches='tight')
+# plt.show()
+# # plt.close()
+# ##
+#
+# visualize.sampling_fval_trace(result1, size=(12, 5))
+# plt.savefig(dir_to+'sampling_fval_' + sam_method+'_' + str(n_samples) + '.png',
+#             bbox_inches='tight')
+# # plt.close()
+# ##
+# ax = visualize.sampling_scatter(result1, size=[13, 6])
+# # ax = visualize.sampling_parameter_traces(res, use_problem_bounds=False, size=(12,5))
+# if example_name == "example6":
+#     ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
+#     ax.fig.axes[2].set_ylabel(list(params_dict.keys())[1])
+#     ax.fig.axes[2].set_xlabel(list(params_dict.keys())[0])
+#     ax.fig.axes[3].set_xlabel(list(params_dict.keys())[1])
+#     ax.fig.axes[0].set_xlim(result1.problem.lb[0],result1.problem.ub[0])
+#     ax.fig.axes[2].set_xlim(result1.problem.lb[0], result1.problem.ub[0])
+#     ax.fig.axes[1].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
+#     ax.fig.axes[3].set_xlim(result1.problem.lb[1], result1.problem.ub[1])
+#     ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+#     ax.fig.axes[1].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+#     ax.fig.axes[2].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+#     ax.fig.axes[3].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+# elif example_name == "example1":
+#     ax.fig.axes[0].set_ylabel(list(params_dict.keys())[0])
+#     ax.fig.axes[4].set_ylabel(list(params_dict.keys())[1])
+#     ax.fig.axes[8].set_ylabel(list(params_dict.keys())[2])
+#     ax.fig.axes[12].set_ylabel(list(params_dict.keys())[3])
+#     ax.fig.axes[12].set_xlabel(list(params_dict.keys())[0])
+#     ax.fig.axes[13].set_xlabel(list(params_dict.keys())[1])
+#     ax.fig.axes[14].set_xlabel(list(params_dict.keys())[2])
+#     ax.fig.axes[15].set_xlabel(list(params_dict.keys())[3])
+#     ax.fig.axes[12].set_xlim(result1.problem.lb[0]-0.5, result1.problem.ub[0]+0.5)
+#     ax.fig.axes[13].set_xlim(result1.problem.lb[1]-0.5, result1.problem.ub[1]+0.5)
+#     ax.fig.axes[14].set_xlim(result1.problem.lb[2]-0.5, result1.problem.ub[2]+0.5)
+#     ax.fig.axes[15].set_xlim(result1.problem.lb[3]-0.5, result1.problem.ub[3]+0.5)
+#     ax.fig.axes[0].set_ylim(result1.problem.lb[0], result1.problem.ub[0])
+#     ax.fig.axes[4].set_ylim(result1.problem.lb[1], result1.problem.ub[1])
+#     ax.fig.axes[8].set_ylim(result1.problem.lb[2], result1.problem.ub[2])
+#     ax.fig.axes[12].set_ylim(result1.problem.lb[3], result1.problem.ub[3])
+#
+#
+# plt.savefig(dir_to + 'sampling_scatter_'+sam_method+'_' + str(n_samples) +
+#             '.png', bbox_inches='tight')
+# # plt.close()
+# ##
+# # read existing files
+# # n_samples=10000
+# # with open('/home/erika/Documents/Projects/DFBA/results_sampling_AM_' +str(n_samples) + '.pickle',
+# #           'rb') as result_file:
+# #     result = pickle.load(result_file)  # or the full result object
+# #     result_file.close()
+# ##
+# ax = visualize.sampling_1d_marginals(result1)
+# ax[0][0].set_xlabel(list(params_dict.keys())[0])
+# ax[0][1].set_xlabel(list(params_dict.keys())[1])
+# ax[1][0].set_xlabel(list(params_dict.keys())[2])
+# ax[1][1].set_xlabel(list(params_dict.keys())[3])
+# # plt.savefig(dir_to+ 'sampling_1d_marginals_AM_' +str(n_samples) +'.png', bbox_inches = 'tight')
 
