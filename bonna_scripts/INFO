@@ -1,0 +1,9 @@
+main bash script to start optimization on bonna: (most recent one)
+- run_sbatch_dfba_all_models_ex1_real_data.sh
+	|
+	-> calls: script_sbatched_dfba_all_models.sh
+			|
+			-> calls: run_dfba_bonna_all_models.py
+					|
+					-> calls: ex1_pypesto_bonna.py
+

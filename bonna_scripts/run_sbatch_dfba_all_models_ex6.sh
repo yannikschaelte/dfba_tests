@@ -1,0 +1,39 @@
+echo qsub start
+
+# Declare an array of string with cell types
+#declare -a opt_method=("TNC") SLSQP, L-BFGS-B
+
+declare -x opt_method="L-BFGS-B"
+declare -x nstarts=100
+declare -x parallel="True"
+declare -x model_dir="../dynamic-fba/sbml-models/iND750.xml.gz"
+declare -x data_dir="./data/simulated_data_sigma_0.01_each_minute_ex6.csv"
+declare -x examplename="example6"
+declare -x dir_to="ex6_synthetic_NLLH" 	#foldername
+declare -x costfunct="NLLH"	# "LS" or "NLLH"
+declare -a lb=(-3 -1 -3)
+declare -a ub=(1 3 1)
+
+#for cell_type in ${cellNames[@]}; do
+#for gene_index in {0..1}; do
+#  start_index=$((gene_index*gene_range))
+
+echo $nstarts
+echo $opt_method
+echo $parallel
+echo $model_dir
+echo $data_dir
+echo $examplename
+echo $dir_to
+echo ${lb[@]}
+echo ${ub[@]}
+echo --------------------
+
+
+sbatch /home/edudkin/dfba/dfba_tests/script_sbatched_dfba_all_models.sh $nstarts $opt_method $parallel $model_dir $data_dir $examplename $dir_to $costfunct ${lb[@]} ${ub[@]}
+
+#/home/erika/Documents/Projects/DFBA/bonna/script_sbatched_test.sh $nstarts $opt_method $parallel $model_dir $data_dir $examplename $dir_to $costfunct ${lb[@]} ${ub[@]} 
+#python3 /home/erika/Documents/Projects/DFBA/bonna/run_test.py $nstarts $opt_method $parallel $model_dir $data_dir $examplename $dir_to $costfunct ${lb[@]} ${ub[@]} 
+
+echo qsub done
+

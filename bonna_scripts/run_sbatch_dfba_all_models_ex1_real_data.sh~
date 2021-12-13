@@ -1,0 +1,39 @@
+echo qsub start
+
+# Declare an array of string with cell types
+#declare -a opt_method=("TNC") SLSQP, L-BFGS-B, Pyswarm, Fides
+
+declare -x opt_method="SLSQP"
+declare -x nstarts=100
+declare -x parallel="True"
+declare -x model_dir="../dynamic-fba/sbml-models/iJR904.xml.gz"
+declare -x data_dir="./data/data_Fig1.csv"
+declare -x examplename="example1_aerobic"
+declare -x dir_to="real_data/211207_" 	#foldername
+declare -x costfunct="NLLH_normal"	# "LS" or "NLLH"
+declare -a lb=(-3 -1 -4 -1 -3 -3 -3 -3)
+declare -a ub=(1 2 0 2 1 1 1 1)
+declare -x scaling_param_biomass="True"
+
+#for cell_type in ${cellNames[@]}; do
+#for gene_index in {0..1}; do
+#  start_index=$((gene_index*gene_range))
+
+echo $nstarts
+echo $opt_method
+echo $parallel
+echo $model_dir
+echo $data_dir
+echo $examplename
+echo $dir_to
+echo $costfunct
+echo $scaling_param_biomass
+echo ${lb[@]}
+echo ${ub[@]}
+
+ 
+sbatch /home/edudkin/dfba/dfba_tests/script_sbatched_dfba_all_models.sh $nstarts $opt_method $parallel $model_dir $data_dir $examplename $dir_to $costfunct $scaling_param_biomass ${lb[@]} ${ub[@]} 
+
+
+echo qsub done
+
