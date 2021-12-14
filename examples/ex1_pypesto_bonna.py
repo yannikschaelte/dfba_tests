@@ -113,6 +113,28 @@ def run_optimization(model_dir,
         adding scaling parameter for biomass ?
     opt_options: dict
         optimizer options, defined as in different optimizers
+
+    Returns:
+    --------
+        Saves various result-files into the specified directory: dir_to:
+
+        Result-objects in pickle & hdf5 format:
+        - result_optimize_result_[XXX]starts_[OPT-METHOD]_[COST-FCT+NOISE-MODEL].pickle
+        - result_[XXX]starts_[OPT-METHOD]_[COST-FCT+NOISE-MODEL].hdf5
+
+        History of optimization:
+            - into folder: history_[XXX]starts_[OPT-METHOD]_[COST-FCT+NOISE-MODEL]
+
+        Further optimization information:
+        - df_results_[XXX]starts_[OPT-METHOD]_[COST-FUNCTION+NOISE-MODEL].csv
+            -> saves fval, fval0, n_fval, x, x0, grad, time of all optimization
+               starts
+       - optimizer_options_[XXX]starts_[OPT-METHOD]_[COST-FUNCTION+NOISE-MODEL].csv
+            -> saves specified optimizer options (e.g. fatol, frtol)
+        - pd_info_[XXX]starts_[OPT-METHOD]_[COST-FUNCTION+NOISE-MODEL].csv
+            -> information about input arguments for this optimization run,
+            e.g. dir_to, example_name, model_dir, data_dir, lb, ub, nstarts,
+            opt_method, parallel (True or False), cost_function, x0
     """
     print('optimization method: ' + opt_method)
     print("nstarts: " + str(nstarts))
