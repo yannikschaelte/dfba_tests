@@ -38,9 +38,12 @@ import time
 dir_results = "/home/erika/Documents/Projects/DFBA/results_example1/" \
               "real_data/211207_tout0_05_SLSQP_NLLH_normal_100/"
 
-get_results_from_hdf5 = True  # get results from hdf5-file, if false, define x_hat-vector
-read_from_history = False
-result_nr = 0  # which opt. start should be simulated and plotted?
+get_results_from_hdf5 = True  # get results from hdf5-file, if false: define x_hat-vector
+read_from_history = False     # get results from history.hdf5 file
+result_nr = 0  # which optimization start should be simulated and plotted?
+
+param_scale = 'log10'
+with_scaling_biomass = True     # with additional scaling-parameter for Biomass?
 
 if read_from_history:
     hist_id = 'ges'
@@ -49,10 +52,6 @@ if read_from_history:
                             str(hist_id) + ".hdf5"
     hdf5_history_filename = "history_32starts_Fides_NLLH_normal.hdf5"
 
-
-
-param_scale = 'log10'
-with_scaling_biomass = True
 
 if not get_results_from_hdf5:
     # param_scale = 'lin'
